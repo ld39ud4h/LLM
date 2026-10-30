@@ -1,33 +1,35 @@
-# LLM Discord Bot
+# LLM — Discord Gemini Bot
 
-Bot de Discord em TypeScript integrado ao Google Gemini e Supabase.
+Discord AI assistant built with TypeScript, discord.js, Google Gemini and Supabase.
 
-## Requisitos
+## Features
+- Slash command /ask and direct @mention replies.
+- Persistent conversation history per user and channel.
+- User-controlled persistent memory: /remember, /memories and /forget.
+- Server-specific assistant persona configurable by administrators with /persona.
+- Validated environment variables and structured logs.
 
+## Requirements
 - Node.js 22+
 - pnpm 9+
-- Aplicação criada no Discord Developer Portal
-- Chave da API Gemini
-- Projeto Supabase
+- Discord application/bot token
+- Gemini API key
+- Supabase project
 
-## Desenvolvimento
-
-```bash
+## Setup
+~~~bash
 pnpm install
 cp .env.example .env
+~~~
+Fill in .env, then apply the SQL migrations in supabase/migrations in order.
+
+Register slash commands:
+~~~bash
+pnpm deploy:commands
+~~~
+Start locally:
+~~~bash
 pnpm dev
-```
+~~~
 
-Configure as variáveis de ambiente em `.env`. Nunca publique tokens ou chaves privadas.
-
-## Scripts
-
-- `pnpm dev`: execução em desenvolvimento
-- `pnpm build`: compilação TypeScript
-- `pnpm start`: execução da versão compilada
-- `pnpm typecheck`: verificação de tipos
-- `pnpm test`: testes
-
-## Estrutura
-
-Veja `docs/ARCHITECTURE.md` e `docs/DATABASE.md`.
+Enable Message Content Intent in the Discord Developer Portal to receive mention text. Keep all secrets out of Git.
