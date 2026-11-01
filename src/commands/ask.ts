@@ -19,9 +19,8 @@ export const askCommand = {
         { discordUserId: interaction.user.id, username: interaction.user.username, channelId: interaction.channelId, guildId: interaction.guildId, prompt },
       );
       const outgoing = buildAnswerMessages(answer, interaction.user.id);
-      const [first, ...rest] = outgoing;
-      if (first) await interaction.editReply(first);
-      for (const payload of rest) await interaction.followUp(payload);
+      await interaction.deleteReply();
+      for (const payload of outgoing) await interaction.followUp(payload);
     } catch (error) {
       logger.error({ err: error, userId: interaction.user.id, streamedChars: streamedText.length }, "Failed to handle /ask");
       const errorText = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
