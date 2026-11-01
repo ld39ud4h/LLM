@@ -35,13 +35,18 @@ async function listOpenRouterModels(): Promise<string[]> {
   if (!response.ok) throw new Error("OpenRouter catalog HTTP " + response.status);
   const payload = await response.json() as { data?: OpenRouterModel[] };
   const eligible = (payload.data ?? []).filter((model) => {
-    const id=model.id ?? "";
+    const id = model.id ?? "";
     return id.endsWith(":free")
       && Number(model.pricing?.prompt) === 0
       && Number(model.pricing?.completion) === 0
       && (!model.architecture?.output_modalities?.length || model.architecture.output_modalities.includes("text"));
-  }).map((model) => model.id!).filter(Boolean);
-  return [...new Set([env.OPENROUTER_MODEL, ...ids].filter((id) => id && id !== "openrouter/free"))].slice(0,5);
+  });
+  // Prefer models with larger context windows, then the most recently published.
+  eligible.sort((left, right) =>
+    Number(right.context_length ?? 0) - Number(left.context_length ?? 0)
+    || Number(right.created ?? 0) - Number(left.created ?? 0),
+  );
+  return [...new Set(eligible.map((model) => model.id).filter((id): id is string => Boolean(id)))].slice(0, 8);
 }
 
 async function probeGemini(model: string): Promise<boolean> {
