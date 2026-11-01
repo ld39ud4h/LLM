@@ -105,6 +105,7 @@ client.on(Events.MessageCreate, async (message) => {
   logger.info({ feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, promptChars: prompt.length }, "Bot mention received");
   let typingInterval: ReturnType<typeof setInterval> | undefined;
   let liveReply: Awaited<ReturnType<typeof message.reply>> | undefined;
+  let liveIsV2 = false;
   try {
     await message.channel.sendTyping();
     typingInterval = setInterval(() => {
@@ -116,7 +117,6 @@ client.on(Events.MessageCreate, async (message) => {
     liveReply = await message.reply("✍️ Estou preparando a resposta...");
     let streamedAnswer = "";
     let lastEditAt = 0;
-    let liveIsV2 = false;
     let pendingEdit = Promise.resolve();
     const answer = await replyToUser(
       { discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt },
