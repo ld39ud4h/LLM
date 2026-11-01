@@ -92,12 +92,12 @@ const units: Record<string, { family: string; factor: number; label: string }> =
 function convert(input: string): string | null {
   const match = input.match(/(-?\d+(?:[.,]\d+)?)\s*(mm|cm|km|m3|m|in|ft|mg|kg|g|t|ml|l|min|mps|km\/h|kmh|h|s|d|tib|gb|mb|kb|b)\s+(?:para|em|to)\s+(mm|cm|km|m3|m|in|ft|mg|kg|g|t|ml|l|min|mps|km\/h|kmh|h|s|d|tib|gb|mb|kb|b)\b/i);
   if (!match) return null;
-  const from = match[2].toLowerCase();
-  const to = match[3].toLowerCase().replace("km/h", "kmh");
+  const from = match[2]!.toLowerCase();
+  const to = match[3]!.toLowerCase().replace("km/h", "kmh");
   const a = units[from];
   const b = units[to];
   if (!a || !b || a.family !== b.family) return "Essas unidades não pertencem à mesma categoria de conversão.";
-  const value = Number(match[1].replace(",", "."));
+  const value = Number(match[1]!.replace(",", "."));
   const result = value * a.factor / b.factor;
   return `${value} ${a.label} equivalem a ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 8 }).format(result)} ${b.label}.`;
 }
