@@ -53,7 +53,7 @@ async function probeGemini(model: string): Promise<boolean> {
       signal:AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
     if(!response.ok) return false;
-    const payload=await response.json() as {candidates?:Array<{content?:{parts?:Array<{text?:string}>}}>}>;
+    const payload=await response.json() as any;
     return Boolean(payload.candidates?.[0]?.content?.parts?.some((part)=>part.text?.trim()));
   } catch { return false; }
 }
