@@ -7,6 +7,8 @@ const schema = z.object({
   DISCORD_GUILD_ID: z.string().optional(),
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_MODEL: z.string().default("openrouter/free"),
   BOT_TIMEZONE: z.string().default("America/Sao_Paulo"),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
