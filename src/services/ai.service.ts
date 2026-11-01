@@ -22,7 +22,7 @@ const DEFAULT_SYSTEM_INSTRUCTION = [
 
 function selectTools(prompt: string): Tool[] {
   const tools: Tool[] = [];
-  if (/\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\b/i.test(prompt)) tools.push({ googleSearch: {} });
+  if (/\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|previsão do tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\b/i.test(prompt)) tools.push({ googleSearch: {} });
   if (/\b(calcul[ae]|equação|código|script|programa|análise de dados|estatística|simulação|planilha|algoritmo)\b/i.test(prompt)) tools.push({ codeExecution: {} });
   return tools;
 }
