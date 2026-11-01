@@ -108,7 +108,7 @@ const tools: LocalTool[] = [
     description: "Horário atual em fusos horários e cidades conhecidas",
     match: (s) => /\b(que horas|horário|hora atual)\b.*\b(em|no|na)\b/.test(s),
     run: (s) => {
-      const zones: Record<string, string> = { lisboa: "Europe/Lisbon", londres: "Europe/London", "nova york": "America/New_York", "los angeles": "America/Los_Angeles", tóquio: "Asia/Tokyo", tokyo: "Asia/Tokyo", "são paulo": "America/Sao_Paulo", brasília: "America/Sao_Paulo", "brasília": "America/Sao_Paulo", "buenos aires": "America/Argentina/Buenos_Aires", "paris": "Europe/Paris", "dubai": "Asia/Dubai" };
+      const zones: Record<string, string> = { lisboa: "Europe/Lisbon", londres: "Europe/London", "nova york": "America/New_York", "los angeles": "America/Los_Angeles", tóquio: "Asia/Tokyo", tokyo: "Asia/Tokyo", "são paulo": "America/Sao_Paulo", brasília: "America/Sao_Paulo", "buenos aires": "America/Argentina/Buenos_Aires", "paris": "Europe/Paris", "dubai": "Asia/Dubai" };
       const city = Object.keys(zones).find((name) => s.includes(name));
       if (!city) return "Informe uma cidade conhecida. Exemplo: que horas são em Lisboa?";
       const zone = zones[city];
@@ -158,9 +158,9 @@ const tools: LocalTool[] = [
     run: (s) => {
       const m = s.match(/(-?\d+(?:[.,]\d+)?)\s*°?\s*(celsius|fahrenheit|kelvin|°c|°f|°k)\s+(?:para|em)\s*(celsius|fahrenheit|kelvin|°c|°f|°k)/);
       if (!m) return "Exemplo: 25 Celsius para Fahrenheit.";
-      const n = Number(m[1].replace(",", "."));
+      const n = Number(m[1]!.replace(",", "."));
       const unit = (v: string) => v.includes("c") ? "C" : v.includes("f") ? "F" : "K";
-      const from = unit(m[2]), to = unit(m[3]);
+      const from = unit(m[2]!), to = unit(m[3]!);
       const celsius = from === "C" ? n : from === "F" ? (n - 32) * 5 / 9 : n - 273.15;
       const result = to === "C" ? celsius : to === "F" ? celsius * 9 / 5 + 32 : celsius + 273.15;
       return `${n}°${from} = ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 }).format(result)}°${to}.`;
@@ -173,7 +173,7 @@ const tools: LocalTool[] = [
     run: (s) => {
       const dates = [...s.matchAll(/\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/g)];
       if (dates.length < 2) return "Informe duas datas no formato DD/MM/AAAA.";
-      const toUtc = (m: RegExpMatchArray) => Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+      const toUtc = (m: RegExpExecArray) => Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
       const days = Math.abs(toUtc(dates[1]!) - toUtc(dates[0]!)) / 86400000;
       return `A diferença entre as datas é de ${days} dia(s).`;
     },
