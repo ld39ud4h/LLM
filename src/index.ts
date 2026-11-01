@@ -5,7 +5,7 @@ import { logger } from "./config/logger.js";
 import { commands } from "./commands/index.js";
 import { handlePersonaComponent, handlePersonaReset } from "./commands/persona.js";
 import { rememberGeneratedAnswer } from "./services/response-memory.service.js";
-import { buildAnswerMessages } from "./services/response-message.service.js";
+import { buildAnswerMessages, buildAnswerPreview } from "./services/response-message.service.js";
 import { registerSlashCommands } from "./services/command-registration.service.js";
 import { replyToUser } from "./services/chat.service.js";
 
@@ -113,16 +113,47 @@ client.on(Events.MessageCreate, async (message) => {
       });
     }, 8000);
 
+    liveReply = await message.reply("✍️ Estou preparando a resposta...");
+    let streamedAnswer = "";
+    let lastEditAt = 0;
+    let liveIsV2 = false;
+    let pendingEdit = Promise.resolve();
     const answer = await replyToUser(
       { discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt },
+      async (chunk) => {
+        streamedAnswer += chunk;
+        if (Date.now() - lastEditAt < 650) return;
+        lastEditAt = Date.now();
+        const preview = buildAnswerPreview(streamedAnswer);
+        const previewIsV2 = "flags" in preview;
+        pendingEdit = pendingEdit.then(async () => {
+          if (!liveReply) return;
+          if (previewIsV2 && !liveIsV2) {
+            await liveReply.edit({ ...preview, content: null });
+            liveIsV2 = true;
+          } else {
+            await liveReply.edit(preview);
+            liveIsV2 = previewIsV2 || liveIsV2;
+          }
+        });
+        await pendingEdit;
+      },
     );
     if (typingInterval) { clearInterval(typingInterval); typingInterval = undefined; }
+    await pendingEdit;
     const outgoing = buildAnswerMessages(answer, message.author.id);
-    for (let i = 0; i < outgoing.length; i++) {
-      const payload = outgoing[i]!;
-      if (i === 0) liveReply = await message.reply(payload);
-      else await message.channel.send(payload);
+    const firstPayload = outgoing[0]!;
+    if (liveReply) {
+      if ("flags" in firstPayload && !liveIsV2) {
+        await liveReply.edit({ ...firstPayload, content: null });
+        liveIsV2 = true;
+      } else {
+        await liveReply.edit(firstPayload);
+      }
+    } else {
+      liveReply = await message.reply(firstPayload);
     }
+    for (let i = 1; i < outgoing.length; i++) await message.channel.send(outgoing[i]!);
     logger.info({ feature: "discord-mention", userId: message.author.id, channelId: message.channelId, durationMs: Date.now() - startedAt, responseChars: answer.length, layoutMessages: outgoing.length }, "Bot mention handled");
   } catch (error) {
     logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length }, "Failed to handle mention");
