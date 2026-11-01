@@ -18,3 +18,23 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
+      - name: Smoke test local tools and SQLite runtime
+        env:
+          DISCORD_TOKEN: test-token
+          DISCORD_CLIENT_ID: "123456789"
+          GEMINI_API_KEY: test-gemini-key
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+        run: |
+          node --input-type=module <<'NODE'
+          import { DatabaseSync } from "node:sqlite";
+          const db = new DatabaseSync(":memory:");
+          db.exec("create table smoke (value integer)");
+          db.prepare("insert into smoke(value) values (?)").run(42);
+          if (db.prepare("select value from smoke").get().value !== 42) throw new Error("SQLite smoke test failed");
+          db.close();
+          const { runLocalToolByName } = await import("./dist/services/tools/index.js");
+          const result = runLocalToolByName("calculadora", "quanto é 2+2?");
+          if (!result.handled || !result.response.includes("4")) throw new Error("Local calculator smoke test failed");
+          console.log("SQLite and model-selected local tool smoke tests passed");
+          NODE
