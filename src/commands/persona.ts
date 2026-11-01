@@ -1,6 +1,9 @@
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ContainerBuilder,
+  SectionBuilder,
   MessageFlags,
   SlashCommandBuilder,
   StringSelectMenuBuilder,
@@ -8,18 +11,20 @@ import {
   TextDisplayBuilder,
   type ChatInputCommandInteraction,
   type StringSelectMenuInteraction,
+  type ButtonInteraction,
 } from "discord.js";
 import { logger } from "../config/logger.js";
 import {
   DEFAULT_PERSONA_KEY,
+  resetUserPersona,
   PERSONA_PRESETS,
   getUserPersonaKey,
-  resetUserPersona,
   setUserPersona,
   type PersonaKey,
 } from "../services/user-persona.service.js";
 
 const SELECT_PREFIX = "persona:select:";
+const RESET_PREFIX = "persona:reset:";
 
 function personaEmoji(key: PersonaKey): string {
   const emojis: Record<PersonaKey, string> = {
@@ -50,19 +55,19 @@ function buildPersonaPanel(ownerId: string, current: PersonaKey | undefined, not
           .setEmoji(personaEmoji(key as PersonaKey))
           .setDefault(key === selected),
       ),
-      new StringSelectMenuOptionBuilder()
-        .setLabel("Restaurar personalidade padrão")
-        .setDescription("Volta ao consultor brincalhão e prestativo")
-        .setValue("reset")
-        .setEmoji("🔄"),
+    );
+
+  const titleSection = new SectionBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎭 Personalização do consultor"))
+    .setButtonAccessory(
+      new ButtonBuilder().setCustomId(RESET_PREFIX + ownerId).setEmoji("🔄").setStyle(ButtonStyle.Secondary),
     );
 
   return new ContainerBuilder()
     .setAccentColor(0x5865f2)
+    .addSectionComponents(titleSection)
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        "# 🎭 Personalização do consultor\nEscolha como você prefere conversar comigo. Essa configuração é **individual** e não altera a experiência de outros membros.",
-      ),
+      new TextDisplayBuilder().setContent("Escolha como você prefere conversar comigo. Essa configuração é **individual** e não altera a experiência de outros membros."),
     )
     .addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select))
     .addTextDisplayComponents(
@@ -117,20 +122,6 @@ export async function handlePersonaComponent(interaction: StringSelectMenuIntera
     const choice = interaction.values[0];
     if (!choice) return;
 
-    if (choice === "reset") {
-      await resetUserPersona(interaction.user.id);
-      await interaction.editReply({
-        components: [
-          buildPersonaPanel(
-            interaction.user.id,
-            undefined,
-            "✅ **Personalidade restaurada!** Seu estilo voltou ao padrão.",
-          ),
-        ],
-      });
-      return;
-    }
-
     if (!(choice in PERSONA_PRESETS)) {
       const current = await getUserPersonaKey(interaction.user.id);
       await interaction.editReply({
@@ -171,5 +162,23 @@ export async function handlePersonaComponent(interaction: StringSelectMenuIntera
         ),
       ],
     });
+  }
+}
+
+export async function handlePersonaReset(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.customId.startsWith(RESET_PREFIX)) return;
+  const ownerId = interaction.customId.slice(RESET_PREFIX.length);
+  if (ownerId !== interaction.user.id) {
+    await interaction.reply({ content: "Esse painel pertence a outra pessoa. Use /persona para abrir o seu. 🙂", ephemeral: true });
+    return;
+  }
+  await interaction.deferUpdate();
+  try {
+    await resetUserPersona(interaction.user.id);
+    await interaction.editReply({ components: [buildPersonaPanel(interaction.user.id, undefined, "✅ **Personalidade restaurada!** Seu estilo voltou ao padrão.")] });
+  } catch (error) {
+    logger.error({ err: error, userId: interaction.user.id }, "Could not reset user persona");
+    const current = await getUserPersonaKey(interaction.user.id).catch(() => undefined);
+    await interaction.editReply({ components: [buildPersonaPanel(interaction.user.id, current, "Não consegui restaurar a personalidade. Tente novamente.")] });
   }
 }
