@@ -1,26 +1,35 @@
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 
-export type ContextToolName = "get_recent_history" | "get_yesterday_history" | "get_user_memories" | "get_guild_settings" | "get_user_persona";
+export type ContextToolName =
+  | "get_recent_history"
+  | "get_yesterday_history"
+  | "get_user_memories"
+  | "get_guild_settings"
+  | "get_user_persona";
 
 const declarations = [
   { name: "get_recent_history", description: "Recupera as mensagens recentes da conversa atual. Use somente quando a pergunta depender de algo dito anteriormente.", parameters: { type: "OBJECT", properties: {} } },
-  { name: "get_yesterday_history", description: "Recupera somente as mensagens da conversa atual ocorridas ontem no fuso do bot. Prefira esta ferramenta quando a pessoa disser ontem.", parameters: { type: "OBJECT", properties: {} } },
-  { name: "get_user_memories", description: "Recupera memórias persistentes explicitamente salvas sobre esta pessoa. Use quando ela perguntar o que você lembra dela ou fizer referência a uma preferência/fato salvo.", parameters: { type: "OBJECT", properties: {} } },
-  { name: "get_guild_settings", description: "Recupera instruções personalizadas do servidor Discord atual. Use apenas se forem relevantes para responder.", parameters: { type: "OBJECT", properties: {} } },
-  { name: "get_user_persona", description: "Recupera a personalidade e estilo de resposta configurados pela pessoa. Use apenas se forem relevantes para a resposta.", parameters: { type: "OBJECT", properties: {} } },
+  { name: "get_yesterday_history", description: "Recupera somente as mensagens da conversa atual ocorridas ontem no fuso do bot. Use quando a pessoa disser ontem.", parameters: { type: "OBJECT", properties: {} } },
+  { name: "get_user_memories", description: "Recupera memórias persistentes explicitamente salvas sobre esta pessoa.", parameters: { type: "OBJECT", properties: {} } },
+  { name: "get_guild_settings", description: "Recupera instruções personalizadas do servidor Discord atual, somente se forem relevantes.", parameters: { type: "OBJECT", properties: {} } },
+  { name: "get_user_persona", description: "Recupera a personalidade e estilo configurados pela pessoa, somente se forem relevantes.", parameters: { type: "OBJECT", properties: {} } },
 ] as const;
 
 const allowed = new Set<string>(declarations.map((item) => item.name));
 
 function parseGeminiCalls(payload: any): ContextToolName[] {
   const parts = payload?.candidates?.[0]?.content?.parts ?? [];
-  return [...new Set(parts.filter((part: any) => part.functionCall?.name && allowed.has(part.functionCall.name)).map((part: any) => part.functionCall.name as ContextToolName))];
+  return [...new Set(parts
+    .filter((part: any) => part.functionCall?.name && allowed.has(part.functionCall.name))
+    .map((part: any) => part.functionCall.name as ContextToolName))];
 }
 
 function parseOpenRouterCalls(payload: any): ContextToolName[] {
   const calls = payload?.choices?.[0]?.message?.tool_calls ?? [];
-  return [...new Set(calls.filter((call: any) => allowed.has(call.function?.name)).map((call: any) => call.function.name as ContextToolName))];
+  return [...new Set(calls
+    .filter((call: any) => allowed.has(call.function?.name))
+    .map((call: any) => call.function.name as ContextToolName))];
 }
 
 async function planWithGemini(prompt: string): Promise<ContextToolName[]> {
@@ -30,13 +39,13 @@ async function planWithGemini(prompt: string): Promise<ContextToolName[]> {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: [
         "Você é um seletor de ferramentas para um assistente do Discord.",
-        "Decida autonomamente se algum contexto persistente é realmente necessário para responder à mensagem.",
+        "Decida autonomamente se algum contexto persistente é realmente necessário para responder.",
         "Não escolha ferramentas por palavras isoladas; considere a intenção e a dependência de informação pessoal anterior.",
-        "Cumprimentos, perguntas gerais e conhecimento estável normalmente não precisam de ferramentas.",
-        "Se a pessoa disser ontem, escolha apenas get_yesterday_history, não get_recent_history.",
-        "Se perguntar por conversas anteriores, escolha get_recent_history. Se pedir algo que lembra/salvou, escolha get_user_memories.",
-        "Escolha configurações/persona somente quando forem relevantes. Ferramentas independentes podem ser chamadas juntas.",
-        "Use o menor conjunto de ferramentas. Nunca invente chamadas ou argumentos."
+        "Cumprimentos, perguntas gerais e conhecimento estável normalmente não exigem ferramentas.",
+        "Se a pessoa disser ontem, escolha apenas get_yesterday_history, nunca get_recent_history.",
+        "Referência a conversas anteriores usa get_recent_history. Memória pessoal salva usa get_user_memories.",
+        "Configurações/persona somente quando relevantes. Chamadas independentes podem ser selecionadas juntas.",
+        "Use o menor conjunto de ferramentas. Não invente ferramentas ou argumentos."
       ].join("\n") }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       tools: [{ functionDeclarations: declarations }],
@@ -59,9 +68,16 @@ async function planWithOpenRouter(prompt: string): Promise<ContextToolName[]> {
       temperature: 0,
       tool_choice: "auto",
       parallel_tool_calls: true,
-      tools: declarations.map((item) => ({ type: "function", function: { name: item.name, description: item.description, parameters: { type: "object", properties: {}, additionalProperties: false } } })),
+      tools: declarations.map((item) => ({
+        type: "function",
+        function: {
+          name: item.name,
+          description: item.description,
+          parameters: { type: "object", properties: {}, additionalProperties: false },
+        },
+      })),
       messages: [
-        { role: "system", content: "Você seleciona ferramentas de contexto para um assistente. Escolha zero ou mais ferramentas somente se necessárias. 'ontem' exige get_yesterday_history e não get_recent_history. Referência a conversas anteriores usa get_recent_history. Memória pessoal salva usa get_user_memories. Configurações/persona só quando relevantes. Chamadas independentes devem ser paralelas. Não invente dados." },
+        { role: "system", content: "Selecione zero ou mais ferramentas de contexto somente se necessárias. 'ontem' exige get_yesterday_history e não get_recent_history. Conversas anteriores: get_recent_history. Memória pessoal salva: get_user_memories. Configurações/persona somente quando relevantes. Chamadas independentes podem ser paralelas. Não invente dados." },
         { role: "user", content: prompt },
       ],
     }),
@@ -71,7 +87,21 @@ async function planWithOpenRouter(prompt: string): Promise<ContextToolName[]> {
   return parseOpenRouterCalls(await response.json());
 }
 
-function conservativeFallback(prompt: string): ContextToolName[] {\n  const normalized = prompt.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();\n  const tools: ContextToolName[] = [];\n  if (/\\b(ontem|conversa de ontem|mensagens de ontem|o que falamos ontem)\\b/.test(normalized)) tools.push("get_yesterday_history");\n  else if (/\\b(lembra|recorda|conversamos|falamos|discutimos|assunto que|aquela conversa|outra conversa|da outra vez|anteriormente|historico|mensagens anteriores)\\b/.test(normalized)) tools.push("get_recent_history");\n  if (/\\b(minha memoria|o que voce lembra|lembra de mim|lembra que|recorda que|salvei|te pedi para lembrar)\\b/.test(normalized)) tools.push("get_user_memories");\n  return tools;\n}\n\nexport async function planContextTools(prompt: string): Promise<ContextToolName[]> {
+function conservativeFallback(prompt: string): ContextToolName[] {
+  const normalized = prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const selected: ContextToolName[] = [];
+  if (/\b(ontem|conversa de ontem|mensagens de ontem|o que falamos ontem)\b/.test(normalized)) {
+    selected.push("get_yesterday_history");
+  } else if (/\b(lembra|recorda|conversamos|falamos|discutimos|assunto que|aquela conversa|outra conversa|da outra vez|anteriormente|historico|mensagens anteriores)\b/.test(normalized)) {
+    selected.push("get_recent_history");
+  }
+  if (/\b(minha memoria|o que voce lembra|lembra de mim|lembra que|recorda que|salvei|te pedi para lembrar)\b/.test(normalized)) {
+    selected.push("get_user_memories");
+  }
+  return selected;
+}
+
+export async function planContextTools(prompt: string): Promise<ContextToolName[]> {
   try {
     const selected = await planWithGemini(prompt);
     logger.info({ feature: "context-tool-planner", provider: "gemini", selected }, "Model selected context tools");
@@ -83,8 +113,9 @@ function conservativeFallback(prompt: string): ContextToolName[] {\n  const norm
       logger.info({ feature: "context-tool-planner", provider: "openrouter", selected }, "Model selected context tools");
       return selected;
     } catch (openRouterError) {
-      logger.error({ err: openRouterError, feature: "context-tool-planner" }, "All context planners failed; using conservative no-context fallback");
-      return [];
+      const fallback = conservativeFallback(prompt);
+      logger.error({ err: openRouterError, feature: "context-tool-planner", fallback }, "All context planners failed; applying conservative recall-only fallback");
+      return fallback;
     }
   }
 }
