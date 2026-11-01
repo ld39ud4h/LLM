@@ -123,11 +123,11 @@ client.on(Events.MessageCreate, async (message) => {
       if (i === 0) liveReply = await message.reply(payload);
       else await message.channel.send(payload);
     }
-    logger.info({ feature: "discord-mention", userId: message.author.id, channelId: message.channelId, durationMs: Date.now() - startedAt, responseChars: answer.length, streamed: true }, "Bot mention handled");
+    logger.info({ feature: "discord-mention", userId: message.author.id, channelId: message.channelId, durationMs: Date.now() - startedAt, responseChars: answer.length, layoutMessages: outgoing.length }, "Bot mention handled");
   } catch (error) {
-    logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length, streamedChars: streamedText.length }, "Failed to handle mention");
+    logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length }, "Failed to handle mention");
     const errorText = "Desculpe, ocorreu um erro ao processar sua mensagem.";
-    if (liveReply) await liveReply.edit(streamedText.slice(0, 1850) + "\n\n" + errorText);
+    if (liveReply) await liveReply.edit(errorText);
     else await message.reply(errorText);
   } finally {
     if (typingInterval) clearInterval(typingInterval);
