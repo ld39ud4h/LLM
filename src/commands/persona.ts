@@ -21,10 +21,10 @@ import {
 
 const SELECT_PREFIX = "persona:select:";
 
-function buildPersonaPanel(current: PersonaKey | undefined, notice?: string): ContainerBuilder {
+function buildPersonaPanel(ownerId: string, current: PersonaKey | undefined, notice?: string): ContainerBuilder {
   const selected = current ?? DEFAULT_PERSONA_KEY;
   const select = new StringSelectMenuBuilder()
-    .setCustomId(SELECT_PREFIX + "owner")
+    .setCustomId(SELECT_PREFIX + ownerId)
     .setPlaceholder("Escolha uma ação ou personalidade")
     .setMinValues(1)
     .setMaxValues(1)
@@ -69,22 +69,8 @@ export const personaCommand = {
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
       const current = await getUserPersonaKey(interaction.user.id);
-      const response = buildPersonaPanel(current);
-      // O custom ID recebe o dono do painel para impedir alterações por terceiros.
-      response.components[1] = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId(SELECT_PREFIX + interaction.user.id)
-          .setPlaceholder("Escolha uma ação ou personalidade")
-          .addOptions(
-            new StringSelectMenuOptionBuilder().setLabel("Ver minha personalidade atual").setDescription("Mostra qual estilo está ativo na sua conta").setValue("view").setEmoji("👁️"),
-            ...Object.entries(PERSONA_PRESETS).map(([key, preset]) =>
-              new StringSelectMenuOptionBuilder().setLabel(preset.label).setDescription(preset.description).setValue(key).setEmoji(key === "playful" ? "😎" : key === "professional" ? "💼" : key === "teacher" ? "📚" : key === "concise" ? "🎯" : key === "technical" ? "🛠️" : "🤝").setDefault(key === (current ?? DEFAULT_PERSONA_KEY)),
-            ),
-            new StringSelectMenuOptionBuilder().setLabel("Restaurar personalidade padrão").setDescription("Volta ao consultor brincalhão e prestativo").setValue("reset").setEmoji("🔄"),
-          ),
-      );
       await interaction.reply({
-        components: [response],
+        components: [buildPersonaPanel(interaction.user.id, current)],
         flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       });
     } catch (error) {
@@ -111,30 +97,31 @@ export async function handlePersonaComponent(interaction: StringSelectMenuIntera
       const current = await getUserPersonaKey(interaction.user.id);
       const active = current ?? DEFAULT_PERSONA_KEY;
       await interaction.editReply({
-        components: [buildPersonaPanel(current, "**Sua personalidade atual:** " + PERSONA_PRESETS[active].label + "\n" + PERSONA_PRESETS[active].description + "\n\nSelecione outra opção abaixo para alterar.")],
+        components: [buildPersonaPanel(interaction.user.id, current, "**Sua personalidade atual:** " + PERSONA_PRESETS[active].label + "\n" + PERSONA_PRESETS[active].description + "\n\nSelecione outra opção abaixo para alterar.")],
       });
       return;
     }
     if (choice === "reset") {
       await resetUserPersona(interaction.user.id);
       await interaction.editReply({
-        components: [buildPersonaPanel(undefined, "✅ **Personalidade restaurada!** Seu padrão agora é **" + PERSONA_PRESETS[DEFAULT_PERSONA_KEY].label + "**.")],
+        components: [buildPersonaPanel(interaction.user.id, undefined, "✅ **Personalidade restaurada!** Seu padrão agora é **" + PERSONA_PRESETS[DEFAULT_PERSONA_KEY].label + "**.")],
       });
       return;
     }
     if (!(choice in PERSONA_PRESETS)) {
-      await interaction.editReply({ components: [buildPersonaPanel(await getUserPersonaKey(interaction.user.id), "Não reconheci essa opção. Escolha uma das personalidades disponíveis.")] });
+      await interaction.editReply({ components: [buildPersonaPanel(interaction.user.id, await getUserPersonaKey(interaction.user.id), "Não reconheci essa opção. Escolha uma das personalidades disponíveis.")] });
       return;
     }
     const key = choice as PersonaKey;
     await setUserPersona(interaction.user.id, key);
     await interaction.editReply({
-      components: [buildPersonaPanel(key, "✅ **Personalidade atualizada!** A partir de agora, vou conversar com você no estilo **" + PERSONA_PRESETS[key].label + "**.")],
+      components: [buildPersonaPanel(interaction.user.id, key, "✅ **Personalidade atualizada!** A partir de agora, vou conversar com você no estilo **" + PERSONA_PRESETS[key].label + "**.")],
     });
   } catch (error) {
     logger.error({ err: error, userId: interaction.user.id, choice: interaction.values[0] }, "Could not process persona selection");
+    const current = await getUserPersonaKey(interaction.user.id).catch(() => undefined);
     await interaction.editReply({
-      components: [buildPersonaPanel(await getUserPersonaKey(interaction.user.id).catch(() => undefined), "Não consegui salvar essa alteração. Tente novamente em instantes.")],
+      components: [buildPersonaPanel(interaction.user.id, current, "Não consegui salvar essa alteração. Tente novamente em instantes.")],
     });
   }
 }
