@@ -50,7 +50,7 @@ async function planWithGemini(prompt: string): Promise<ContextToolName[]> {
 }
 
 async function planWithOpenRouter(prompt: string): Promise<ContextToolName[]> {
-  if (!env.OPENROUTER_API_KEY) return [];
+  if (!env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { authorization: "Bearer " + env.OPENROUTER_API_KEY, "content-type": "application/json" },
@@ -71,7 +71,7 @@ async function planWithOpenRouter(prompt: string): Promise<ContextToolName[]> {
   return parseOpenRouterCalls(await response.json());
 }
 
-export async function planContextTools(prompt: string): Promise<ContextToolName[]> {
+function conservativeFallback(prompt: string): ContextToolName[] {\n  const normalized = prompt.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();\n  const tools: ContextToolName[] = [];\n  if (/\\b(ontem|conversa de ontem|mensagens de ontem|o que falamos ontem)\\b/.test(normalized)) tools.push("get_yesterday_history");\n  else if (/\\b(lembra|recorda|conversamos|falamos|discutimos|assunto que|aquela conversa|outra conversa|da outra vez|anteriormente|historico|mensagens anteriores)\\b/.test(normalized)) tools.push("get_recent_history");\n  if (/\\b(minha memoria|o que voce lembra|lembra de mim|lembra que|recorda que|salvei|te pedi para lembrar)\\b/.test(normalized)) tools.push("get_user_memories");\n  return tools;\n}\n\nexport async function planContextTools(prompt: string): Promise<ContextToolName[]> {
   try {
     const selected = await planWithGemini(prompt);
     logger.info({ feature: "context-tool-planner", provider: "gemini", selected }, "Model selected context tools");
