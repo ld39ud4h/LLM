@@ -16,22 +16,28 @@ export async function getOrCreateConversation(discordUserId: string, username: s
 
 function localDayBounds(dayOffset: number): { start: string; end: string } {
   const timezone = env.BOT_TIMEZONE;
-  const now = new Date();
-  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-  const [year, month, day] = localDate.split("-").map(Number);
-  const localMidday = new Date(Date.UTC(year!, month! - 1, day! + dayOffset, 12));
-  const date = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(localMidday);
-  const [y, m, d] = date.split("-").map(Number);
-  // Convert local midnight boundaries to UTC using the configured timezone offset at that date.
-  const toUtc = (hour: number) => {
-    const target = new Date(Date.UTC(y!, m! - 1, d!, hour));
-    const parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(target);
-    const hh = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
-    const mm = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
-    const offsetMinutes = hh * 60 + mm - hour * 60;
-    return new Date(target.getTime() - offsetMinutes * 60_000).toISOString();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const [year, month, day] = today.split("-").map(Number);
+  const targetDate = new Date(Date.UTC(year!, month! - 1, day! + dayOffset, 12));
+  const dateParts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(targetDate);
+  const [y, m, d] = dateParts.split("-").map(Number);
+
+  const midnightUtc = (yy: number, mm: number, dd: number): Date => {
+    const utcGuess = Date.UTC(yy, mm - 1, dd, 12);
+    const wallParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(utcGuess));
+    const value = (type: string) => Number(wallParts.find((part) => part.type === type)?.value ?? 0);
+    const wallAsUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"), value("second"));
+    const offset = wallAsUtc - utcGuess;
+    return new Date(Date.UTC(yy, mm - 1, dd) - offset);
   };
-  return { start: toUtc(0), end: toUtc(24) };
+
+  const start = midnightUtc(y!, m!, d!);
+  const nextDay = new Date(Date.UTC(y!, m! - 1, d! + 1));
+  const end = midnightUtc(nextDay.getUTCFullYear(), nextDay.getUTCMonth() + 1, nextDay.getUTCDate());
+  return { start: start.toISOString(), end: end.toISOString() };
 }
 
 async function queryHistory(conversationId: string, start?: string, end?: string): Promise<ChatTurn[]> {
