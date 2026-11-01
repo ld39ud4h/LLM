@@ -35,10 +35,11 @@ export async function getAIProviderState(): Promise<AIProviderState> {
       .eq("state_key", "global").maybeSingle();
     if (error) throw error;
     if (data) {
+      const active = data.active_provider && data.active_model
+        ? { provider: data.active_provider as ActiveAIProvider, model: data.active_model as string }
+        : undefined;
       cachedState = {
-        active: data.active_provider && data.active_model
-          ? { provider: data.active_provider as ActiveAIProvider, model: data.active_model as string }
-          : undefined,
+        ...(active ? { active } : {}),
         availableModels: parseCandidates(data.available_models),
       };
       cacheSet("ai_runtime_state", "global", data);
