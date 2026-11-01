@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { commands } from "./commands/index.js";
 import { handlePersonaComponent } from "./commands/persona.js";
+import { registerSlashCommands } from "./services/command-registration.service.js";
 import { replyToUser } from "./services/chat.service.js";
 
 const healthServer = createServer((request, response) => {
@@ -22,8 +23,13 @@ healthServer.listen(port, "0.0.0.0", () => logger.info({ feature: "health", port
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const commandMap = new Map(commands.map((command) => [command.data.name, command]));
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   logger.info({ feature: "discord", botTag: readyClient.user.tag, botUserId: readyClient.user.id }, "Discord bot is online");
+  try {
+    await registerSlashCommands();
+  } catch (error) {
+    logger.error({ err: error, feature: "discord-command-registration" }, "Could not synchronize slash commands on startup");
+  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
