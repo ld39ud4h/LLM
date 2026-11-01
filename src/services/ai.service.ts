@@ -99,6 +99,81 @@ async function discoverGeminiModels(): Promise<string[]> {
   return finalModels;
 }
 
+
+interface OpenRouterModel {
+  id?: string;
+  name?: string;
+  context_length?: number;
+  pricing?: { prompt?: string; completion?: string };
+  architecture?: { modality?: string; output_modalities?: string[] };
+  supported_parameters?: string[];
+}
+
+let openRouterModelCache: { models: string[]; expiresAt: number } | undefined;
+
+async function discoverOpenRouterModels(): Promise<string[]> {
+  if (openRouterModelCache && openRouterModelCache.expiresAt > Date.now()) return openRouterModelCache.models;
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/models", {
+      headers: { Authorization: "Bearer " + env.OPENROUTER_API_KEY },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) throw new Error("OpenRouter model discovery returned HTTP " + response.status);
+    const payload = await response.json() as { data?: OpenRouterModel[] };
+    const preferredFamilies = ["nvidia/", "google/", "qwen/", "meta-llama/", "mistralai/", "deepseek/", "thinkingmachines/", "cohere/", "xingchen-agi/"];
+    const candidates = (payload.data ?? []).filter((model) => {
+      const id = model.id ?? "";
+      const promptPrice = Number(model.pricing?.prompt);
+      const completionPrice = Number(model.pricing?.completion);
+      const output = model.architecture?.output_modalities;
+      const name = (id + " " + (model.name ?? "")).toLowerCase();
+      const specialist = /rerank|embedding|moderation|content-safety|guardrail|whisper|tts|text-to-speech|image-generation|image-gen|video-generation/.test(name);
+      return id.endsWith(":free")
+        && promptPrice === 0
+        && completionPrice === 0
+        && !specialist
+        && (!output?.length || output.includes("text"));
+    });
+    const score = (model: OpenRouterModel) => {
+      const id = model.id ?? "";
+      const familyRank = preferredFamilies.findIndex((family) => id.startsWith(family));
+      const params = model.supported_parameters ?? [];
+      return (familyRank < 0 ? 0 : (preferredFamilies.length - familyRank) * 1000000)
+        + Math.min(model.context_length ?? 0, 1000000)
+        + (params.includes("temperature") ? 10000 : 0)
+        + (params.includes("tools") ? 5000 : 0);
+    };
+    const models = candidates
+      .sort((a, b) => score(b) - score(a) || (a.id ?? "").localeCompare(b.id ?? ""))
+      .map((model) => model.id!)
+      .slice(0, 5);
+    openRouterModelCache = { models, expiresAt: Date.now() + 10 * 60 * 1000 };
+    logger.info({ feature: "openrouter-model-discovery", modelCount: models.length, models, selection: "top-five-free-general-purpose" }, "Top five available OpenRouter free models ready");
+    return models;
+  } catch (error) {
+    logger.warn({ err: error, feature: "openrouter-model-discovery" }, "Could not refresh OpenRouter free model catalog");
+    return openRouterModelCache?.models ?? [];
+  }
+}
+
+function validateModelAnswer(answer: string): void {
+  const text = answer.trim();
+  if (!text) throw new Error("Model returned an empty response");
+  const letters = text.match(/\\p{L}/gu) ?? [];
+  if (letters.length < 3) return; // Short greetings and emoji-only conversational replies are valid.
+  const scripts = [
+    /\\p{Script=Cyrillic}/u, /\\p{Script=Han}/u, /\\p{Script=Hiragana}/u,
+    /\\p{Script=Katakana}/u, /\\p{Script=Hangul}/u, /\\p{Script=Arabic}/u,
+    /\\p{Script=Devanagari}/u, /\\p{Script=Greek}/u, /\\p{Script=Hebrew}/u,
+  ];
+  const foreignScriptCount = scripts.filter((pattern) => pattern.test(text)).length;
+  const foreignLetters = (text.match(/[\\p{Script=Cyrillic}\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}\\p{Script=Arabic}\\p{Script=Devanagari}\\p{Script=Greek}\\p{Script=Hebrew}]/gu) ?? []).length;
+  if (foreignScriptCount >= 3 || foreignLetters / letters.length > 0.2 && foreignScriptCount >= 2) {
+    throw new Error("Model response rejected by multilingual-gibberish validation");
+  }
+  if (/(.)\\1{24,}/u.test(text)) throw new Error("Model response rejected due to repeated-character corruption");
+}
+
 function buildSystemInstruction(memories: string[], customSystemPrompt?: string, userPersona?: string): string {
   const serverContext = customSystemPrompt?.trim()
     ? "\n\nOrientações adicionais deste servidor (respeite-as sem perder sua personalidade):\n" + customSystemPrompt.trim()
@@ -156,6 +231,7 @@ async function streamGemini(
 }
 
 async function streamOpenRouter(
+  model: string,
   history: ChatTurn[],
   prompt: string,
   systemInstruction: string,
@@ -173,7 +249,7 @@ async function streamOpenRouter(
       "X-OpenRouter-Title": "Discord LLM Assistant",
     },
     body: JSON.stringify({
-      model: env.OPENROUTER_MODEL,
+      model,
       stream: true,
       temperature,
       messages: [
@@ -285,7 +361,7 @@ export async function generateAnswer(
   const systemInstruction = buildSystemInstruction(memories, customSystemPrompt, userPersona);
   const selectedTools = selectTools(prompt);
   const precisionTask = isPrecisionTask(prompt, selectedTools);
-  const temperature = precisionTask ? 0 : 2;
+  const temperature = precisionTask ? 0 : 0.7;
   const saved = await getActiveAIModel();
   const tried = new Set<string>();
   let lastError: unknown;
@@ -304,9 +380,15 @@ export async function generateAnswer(
     tried.add(key);
     const attemptStartedAt = performance.now();
     let emittedText = false;
-    const guardedChunk: TextChunkHandler | undefined = onChunk
-      ? async (chunk) => { emittedText = true; await onChunk(chunk); }
-      : undefined;
+    // Buffer each provider's complete answer so invalid output never leaks into Discord before fallback.
+    const publishValidatedAnswer = async (answer: string) => {
+      if (!onChunk) return;
+      const chunks = answer.match(/[\\s\\S]{1,900}/g) ?? [];
+      for (const chunk of chunks) {
+        emittedText = true;
+        await onChunk(chunk);
+      }
+    };
     logger.info({
       feature: "ai-fallback",
       provider: attempt.provider,
@@ -316,9 +398,11 @@ export async function generateAnswer(
     }, "AI provider attempt started");
     try {
       const result = attempt.provider === "gemini"
-        ? await streamGemini(attempt.model, history, prompt, systemInstruction, selectedTools, temperature, guardedChunk)
-        : await streamOpenRouter(history, prompt, systemInstruction, temperature, guardedChunk);
-      await setActiveAIModel({ provider: attempt.provider, model: attempt.model });
+        ? await streamGemini(attempt.model, history, prompt, systemInstruction, selectedTools, temperature)
+        : await streamOpenRouter(attempt.model, history, prompt, systemInstruction, temperature);
+      validateModelAnswer(result.answer);
+      await publishValidatedAnswer(result.answer);
+      await setActiveAIModel({ provider: attempt.provider, model: result.actualModel ?? attempt.model });
       logger.info({
         feature: "ai-fallback",
         provider: attempt.provider,
@@ -345,8 +429,18 @@ export async function generateAnswer(
     }
   };
 
+  const tryOpenRouterFallbacks = async (): Promise<string | undefined> => {
+    if (!env.OPENROUTER_API_KEY) return undefined;
+    const freeModels = await discoverOpenRouterModels();
+    for (const model of [...freeModels, "openrouter/free"]) {
+      const answer = await attemptProvider({ provider: "openrouter", model });
+      if (answer) return answer;
+    }
+    return undefined;
+  };
+
   if (saved?.provider === "openrouter") {
-    const answer = await attemptProvider({ provider: "openrouter", model: env.OPENROUTER_MODEL });
+    const answer = await tryOpenRouterFallbacks();
     if (answer) return answer;
   }
 
@@ -360,7 +454,7 @@ export async function generateAnswer(
   }
 
   if (env.OPENROUTER_API_KEY && saved?.provider !== "openrouter") {
-    const answer = await attemptProvider({ provider: "openrouter", model: env.OPENROUTER_MODEL });
+    const answer = await tryOpenRouterFallbacks();
     if (answer) return answer;
   }
 
