@@ -3,7 +3,7 @@ import { logger } from "../config/logger.js";
 import { getAIProviderState, setAIProviderState, type ActiveAIModel } from "./ai-runtime-state.service.js";
 
 interface GeminiModel { name?: string; baseModelId?: string; supportedGenerationMethods?: string[]; }
-interface OpenRouterModel { id?: string; pricing?: { prompt?: string; completion?: string }; architecture?: { output_modalities?: string[] }; }
+interface OpenRouterModel { id?: string; created?: number; context_length?: number; pricing?: { prompt?: string; completion?: string }; architecture?: { output_modalities?: string[] }; }
 
 const PROBE_TIMEOUT_MS = 3500;
 const PROBE_PROMPT = "Responda apenas: OK";
@@ -34,7 +34,7 @@ async function listOpenRouterModels(): Promise<string[]> {
   });
   if (!response.ok) throw new Error("OpenRouter catalog HTTP " + response.status);
   const payload = await response.json() as { data?: OpenRouterModel[] };
-  const ids = (payload.data ?? []).filter((model) => {
+  const eligible = (payload.data ?? []).filter((model) => {
     const id=model.id ?? "";
     return id.endsWith(":free")
       && Number(model.pricing?.prompt) === 0
@@ -73,33 +73,62 @@ async function probeOpenRouter(model: string): Promise<boolean> {
   } catch { return false; }
 }
 
-export async function initializeAIProvider(): Promise<void> {
-  const persisted=await getAIProviderState();
-  const saved=persisted.active;
-  if(saved?.provider && saved.model && persisted.availableModels.length > 0) {
-    logger.info({feature:"ai-bootstrap",provider:saved.provider,model:saved.model},"Persisted AI model found; skipping provider discovery and startup probes");
-    return;
+async function runAIProviderBootstrap(forceRefresh: boolean): Promise<{ selected: ActiveAIModel; healthyModels: ActiveAIModel[]; tested: number }> {
+  const persisted = await getAIProviderState();
+  const saved = persisted.active;
+  if (!forceRefresh && saved?.provider && saved.model && persisted.availableModels.length > 0) {
+    logger.info({ feature: "ai-bootstrap", provider: saved.provider, model: saved.model }, "Persisted AI model found; skipping provider discovery and startup probes");
+    return { selected: saved, healthyModels: persisted.availableModels, tested: 0 };
   }
 
-  logger.info({feature:"ai-bootstrap"},"No persisted AI model found; discovering and probing providers");
-  const [geminiModels,openRouterModels]=await Promise.all([
-    listGeminiModels().catch((error)=>{logger.warn({err:error,feature:"ai-bootstrap",provider:"gemini"},"Gemini model catalog unavailable");return [] as string[];}),
-    listOpenRouterModels().catch((error)=>{logger.warn({err:error,feature:"ai-bootstrap",provider:"openrouter"},"OpenRouter model catalog unavailable");return [] as string[];}),
+  logger.info({ feature: "ai-bootstrap", forceRefresh }, "Discovering and probing current provider catalogs");
+  const [geminiResult, openRouterResult] = await Promise.all([
+    listGeminiModels().then((models) => ({ models, ok: true as const })).catch((error) => {
+      logger.warn({ err: error, feature: "ai-bootstrap", provider: "gemini" }, "Gemini model catalog unavailable");
+      return { models: [] as string[], ok: false as const };
+    }),
+    listOpenRouterModels().then((models) => ({ models, ok: true as const })).catch((error) => {
+      logger.warn({ err: error, feature: "ai-bootstrap", provider: "openrouter" }, "OpenRouter model catalog unavailable");
+      return { models: [] as string[], ok: false as const };
+    }),
   ]);
-  const candidates:ActiveAIModel[]=[
-    ...geminiModels.map((model)=>({provider:"gemini" as const,model})),
-    ...openRouterModels.map((model)=>({provider:"openrouter" as const,model})),
+
+  const candidates: ActiveAIModel[] = [
+    ...(saved ? [saved] : []),
+    ...geminiResult.models.map((model) => ({ provider: "gemini" as const, model })),
+    ...openRouterResult.models.map((model) => ({ provider: "openrouter" as const, model })),
+    ...(!geminiResult.ok ? persisted.availableModels.filter((item) => item.provider === "gemini") : []),
+    ...(!openRouterResult.ok ? persisted.availableModels.filter((item) => item.provider === "openrouter") : []),
   ];
-  const results=await Promise.all(candidates.map(async(candidate)=>({
+  const uniqueCandidates = [...new Map(candidates.map((item) => [item.provider + ":" + item.model, item])).values()];
+  const results = await Promise.all(uniqueCandidates.map(async (candidate) => ({
     candidate,
-    healthy:candidate.provider==="gemini" ? await probeGemini(candidate.model) : await probeOpenRouter(candidate.model),
+    healthy: candidate.provider === "gemini" ? await probeGemini(candidate.model) : await probeOpenRouter(candidate.model),
   })));
-  const healthy=results.filter((result)=>result.healthy);
-  const selected=healthy.find((result)=>result.candidate.provider==="gemini")?.candidate ?? healthy[0]?.candidate;
-  if(!selected) {
-    logger.error({feature:"ai-bootstrap",geminiCandidates:geminiModels.length,openRouterCandidates:openRouterModels.length},"No AI model passed the quick startup probe; runtime fallback remains enabled");
-    return;
+  const healthy = results.filter((result) => result.healthy).map((result) => result.candidate);
+  const previousStillHealthy = saved && healthy.find((item) => item.provider === saved.provider && item.model === saved.model);
+  const selected = previousStillHealthy
+    ?? healthy.find((item) => item.provider === "gemini")
+    ?? healthy[0];
+
+  if (!selected) {
+    logger.error({ feature: "ai-bootstrap", testedModels: results.length }, "No AI model passed the scheduled probe; keeping the last persisted state");
+    throw new Error("No AI model passed the bootstrap probe");
   }
-  await setAIProviderState(selected, healthy.map((result)=>result.candidate));
-  logger.info({feature:"ai-bootstrap",selectedProvider:selected.provider,selectedModel:selected.model,testedModels:results.length,healthyModels:healthy.length,probeTimeoutMs:PROBE_TIMEOUT_MS},"Startup AI model selected and persisted");
+
+  await setAIProviderState(selected, healthy);
+  logger.info({
+    feature: "ai-bootstrap", selectedProvider: selected.provider, selectedModel: selected.model,
+    testedModels: results.length, healthyModels: healthy.length, previousModelRetained: Boolean(previousStillHealthy),
+    probeTimeoutMs: PROBE_TIMEOUT_MS,
+  }, "AI model catalog refreshed and persisted");
+  return { selected, healthyModels: healthy, tested: results.length };
+}
+
+export async function initializeAIProvider(): Promise<void> {
+  await runAIProviderBootstrap(false);
+}
+
+export async function refreshAIProviderCatalog(): Promise<{ selected: ActiveAIModel; healthyModels: ActiveAIModel[]; tested: number }> {
+  return runAIProviderBootstrap(true);
 }

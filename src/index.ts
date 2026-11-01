@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
@@ -9,15 +10,15 @@ import { buildAnswerMessages, buildAnswerPreview } from "./services/response-mes
 import { registerSlashCommands } from "./services/command-registration.service.js";
 import { replyToUser } from "./services/chat.service.js";
 import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
-import { initializeAIProvider } from "./services/ai-bootstrap.service.js";
+import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bootstrap.service.js";
 
-const healthServer = createServer((request, response) => {
+const healthServer = createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/api/helth") {
     response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
     response.end("OK");
     return;
   }
-  response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+  if (request.method === "POST" && request.url === "/api/internal/ai-bootstrap") {\n    const expected = env.AI_BOOTSTRAP_CRON_SECRET;\n    const supplied = request.headers.authorization?.replace(/^Bearer\\s+/i, "") ?? "";\n    const expectedBuffer = Buffer.from(expected ?? "");\n    const suppliedBuffer = Buffer.from(supplied);\n    if (!expected || expectedBuffer.length !== suppliedBuffer.length || !timingSafeEqual(expectedBuffer, suppliedBuffer)) {\n      response.writeHead(401, { "content-type": "application/json; charset=utf-8" });\n      response.end(JSON.stringify({ error: "Unauthorized" }));\n      return;\n    }\n    try {\n      const result = await refreshAIProviderCatalog();\n      response.writeHead(200, { "content-type": "application/json; charset=utf-8" });\n      response.end(JSON.stringify({ ok: true, selected: result.selected, healthyModels: result.healthyModels, tested: result.tested, refreshedAt: new Date().toISOString() }));\n    } catch (error) {\n      logger.error({ err: error, feature: "scheduled-ai-bootstrap" }, "Scheduled AI bootstrap failed");\n      response.writeHead(503, { "content-type": "application/json; charset=utf-8" });\n      response.end(JSON.stringify({ ok: false, error: "AI bootstrap failed" }));\n    }\n    return;\n  }\n  response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
   response.end("Not Found");
 });
 
