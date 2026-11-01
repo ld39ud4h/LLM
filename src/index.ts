@@ -114,7 +114,14 @@ client.on(Events.MessageCreate, async (message) => {
       });
     }, 8000);
 
-    liveReply = await message.reply("✍️ Estou preparando a resposta...");
+    const needsRecall = /\\b(lembra|lembra[rs]?|recorda|recordar|já falamos|conversamos|brainstorming|na outra conversa|da outra vez|o que eu te disse|te contei)\\b/i.test(prompt);
+    const needsCheck = /\\b(pesquise|pesquisar|procure|buscar|busque|confira|verifique|atual|hoje|agora|preço|cotação|notícia|fonte|consulta)\\b/i.test(prompt);
+    const progressMessage = needsRecall
+      ? "Opa, deixa eu puxar isso pela memória rapidão..."
+      : needsCheck
+        ? "Só um instante, vou conferir isso direitinho..."
+        : null;
+    if (progressMessage) liveReply = await message.reply(progressMessage);
     let streamedAnswer = "";
     let lastEditAt = 0;
     let pendingEdit = Promise.resolve();
