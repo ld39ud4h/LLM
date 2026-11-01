@@ -18,7 +18,28 @@ const healthServer = createServer(async (request, response) => {
     response.end("OK");
     return;
   }
-  if (request.method === "POST" && request.url === "/api/internal/ai-bootstrap") {\n    const expected = env.AI_BOOTSTRAP_CRON_SECRET;\n    const supplied = request.headers.authorization?.replace(/^Bearer\\s+/i, "") ?? "";\n    const expectedBuffer = Buffer.from(expected ?? "");\n    const suppliedBuffer = Buffer.from(supplied);\n    if (!expected || expectedBuffer.length !== suppliedBuffer.length || !timingSafeEqual(expectedBuffer, suppliedBuffer)) {\n      response.writeHead(401, { "content-type": "application/json; charset=utf-8" });\n      response.end(JSON.stringify({ error: "Unauthorized" }));\n      return;\n    }\n    try {\n      const result = await refreshAIProviderCatalog();\n      response.writeHead(200, { "content-type": "application/json; charset=utf-8" });\n      response.end(JSON.stringify({ ok: true, selected: result.selected, healthyModels: result.healthyModels, tested: result.tested, refreshedAt: new Date().toISOString() }));\n    } catch (error) {\n      logger.error({ err: error, feature: "scheduled-ai-bootstrap" }, "Scheduled AI bootstrap failed");\n      response.writeHead(503, { "content-type": "application/json; charset=utf-8" });\n      response.end(JSON.stringify({ ok: false, error: "AI bootstrap failed" }));\n    }\n    return;\n  }\n  response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+  if (request.method === "POST" && request.url === "/api/internal/ai-bootstrap") {
+    const expected = env.AI_BOOTSTRAP_CRON_SECRET;
+    const supplied = request.headers.authorization?.replace(/^Bearer\\s+/i, "") ?? "";
+    const expectedBuffer = Buffer.from(expected ?? "");
+    const suppliedBuffer = Buffer.from(supplied);
+    if (!expected || expectedBuffer.length !== suppliedBuffer.length || !timingSafeEqual(expectedBuffer, suppliedBuffer)) {
+      response.writeHead(401, { "content-type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    try {
+      const result = await refreshAIProviderCatalog();
+      response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ ok: true, selected: result.selected, healthyModels: result.healthyModels, tested: result.tested, refreshedAt: new Date().toISOString() }));
+    } catch (error) {
+      logger.error({ err: error, feature: "scheduled-ai-bootstrap" }, "Scheduled AI bootstrap failed");
+      response.writeHead(503, { "content-type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ ok: false, error: "AI bootstrap failed" }));
+    }
+    return;
+  }
+  response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
   response.end("Not Found");
 });
 
