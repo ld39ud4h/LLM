@@ -18,8 +18,8 @@ const DEFAULT_SYSTEM_INSTRUCTION = [
 
 function selectTools(prompt: string): Tool[] {
   const tools: Tool[] = [];
-  if (/\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\b/i.test(prompt)) tools.push({ googleSearch: {} });
-  if (/\b(calcul[ae]|equação|código|script|programa|análise de dados|estatística|simulação|planilha|algoritmo)\b/i.test(prompt)) tools.push({ codeExecution: {} });
+  if (/\\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\\b/i.test(prompt)) tools.push({ googleSearch: {} });
+  if (/\\b(calcul[ae]|equação|código|script|programa|análise de dados|estatística|simulação|planilha|algoritmo)\\b/i.test(prompt)) tools.push({ codeExecution: {} });
   return tools;
 }
 
@@ -35,6 +35,7 @@ async function discoverGeminiModels(): Promise<string[]> {
   if (modelCache && modelCache.expiresAt > Date.now()) return modelCache.models;
   const discovered: string[] = [];
   let pageToken: string | undefined;
+  let discoverySucceeded = false;
   try {
     do {
       const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
@@ -43,10 +44,16 @@ async function discoverGeminiModels(): Promise<string[]> {
       const response = await fetch(url, { headers: { "x-goog-api-key": env.GEMINI_API_KEY }, signal: AbortSignal.timeout(12000) });
       if (!response.ok) throw new Error("Gemini model discovery returned HTTP " + response.status);
       const payload = await response.json() as GeminiModelListResponse;
+      discoverySucceeded = true;
       for (const model of payload.models ?? []) {
         if (!model.supportedGenerationMethods?.includes("generateContent")) continue;
-        const id = (model.baseModelId || model.name?.replace(/^models\//, "") || "").trim();
-        if (/^gemini-(?:2\.6|2\.5)(?:-|$)/i.test(id)) discovered.push(id);
+        const id = (model.baseModelId || model.name?.replace(/^models\\//, "") || "").trim();
+        const version = id.match(/^gemini-(\\d+)\\.(\\d+)/i);
+        if (!version) continue;
+        const major = Number(version[1]);
+        const minor = Number(version[2]);
+        const inRange = (major > 2 || (major === 2 && minor >= 5)) && (major < 3 || (major === 3 && minor <= 8));
+        if (inRange) discovered.push(id);
       }
       pageToken = payload.nextPageToken;
     } while (pageToken);
@@ -54,21 +61,44 @@ async function discoverGeminiModels(): Promise<string[]> {
     logger.warn({ err: error, feature: "ai-model-discovery" }, "Could not refresh Gemini model catalog");
   }
 
-  const unique = [...new Set(discovered)];
   const variantRank = (id: string) => {
     if (/flash-lite/i.test(id)) return 1;
     if (/flash/i.test(id)) return 0;
     if (/pro/i.test(id)) return 2;
     return 3;
   };
-  unique.sort((a, b) => {
-    const version = (id: string) => Number(id.match(/^gemini-(\d+)\.(\d+)/i)?.[1] ?? 0) * 100 + Number(id.match(/^gemini-(\d+)\.(\d+)/i)?.[2] ?? 0);
-    return version(b) - version(a) || variantRank(a) - variantRank(b) || a.localeCompare(b);
+  const byVersion = new Map<string, string[]>();
+  for (const id of new Set(discovered)) {
+    const match = id.match(/^gemini-(\\d+)\\.(\\d+)/i);
+    if (!match) continue;
+    const version = match[1] + "." + match[2];
+    byVersion.set(version, [...(byVersion.get(version) ?? []), id]);
+  }
+  const versions = [...byVersion.keys()].sort((a, b) => {
+    const [aMajor, aMinor] = a.split(".").map(Number);
+    const [bMajor, bMinor] = b.split(".").map(Number);
+    return bMajor - aMajor || bMinor - aMinor;
   });
-  const models = unique.length ? unique : [env.GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter((v, i, arr) => arr.indexOf(v) === i);
-  modelCache = { models, expiresAt: Date.now() + 10 * 60 * 1000 };
-  logger.info({ feature: "ai-model-discovery", modelCount: models.length, models }, "Gemini fallback model catalog ready");
-  return models;
+  // Keep only the two highest distinct model versions actually advertised by the API.
+  const models = versions.slice(0, 2).map((version) =>
+    (byVersion.get(version) ?? []).sort((a, b) => variantRank(a) - variantRank(b) || a.localeCompare(b))[0],
+  ).filter((model): model is string => Boolean(model));
+
+  if (!discoverySucceeded) {
+    const configured = env.GEMINI_MODEL;
+    const match = configured.match(/^gemini-(\\d+)\\.(\\d+)/i);
+    if (match) {
+      const major = Number(match[1]);
+      const minor = Number(match[2]);
+      if ((major > 2 || (major === 2 && minor >= 5)) && (major < 3 || (major === 3 && minor <= 8))) {
+        models.unshift(configured);
+      }
+    }
+  }
+  const finalModels = [...new Set(models)];
+  modelCache = { models: finalModels, expiresAt: Date.now() + 10 * 60 * 1000 };
+  logger.info({ feature: "ai-model-discovery", modelCount: finalModels.length, models: finalModels }, "Top available Gemini model catalog ready");
+  return finalModels;
 }
 
 function buildSystemInstruction(memories: string[], customSystemPrompt?: string): string {
@@ -188,7 +218,7 @@ async function streamOpenRouter(
     while (true) {
       const { value, done } = await reader.read();
       buffer += decoder.decode(value, { stream: !done });
-      const lines = buffer.split(/\r?\n/);
+      const lines = buffer.split(/\\r?\\n/);
       buffer = lines.pop() ?? "";
       for (const line of lines) await processLine(line);
       if (done) break;
