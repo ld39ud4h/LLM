@@ -31,6 +31,8 @@ export async function replyToUser(
   let memories: string[] = [];
   let systemPrompt: string | undefined;
   let userPersona: string | undefined;
+  let selectedTools: ContextToolName[] = [];
+  let contextResultNote = "";
   let answer = "";
 
   const provisionalChunks: string[] = [];
@@ -44,7 +46,7 @@ export async function replyToUser(
 
   if (!greeting) {
     conversationId = await getOrCreateConversation(input.discordUserId, input.username, input.channelId);
-    const selectedTools = await planContextTools(input.prompt);
+    selectedTools = await planContextTools(input.prompt);
     const tasks: Promise<unknown>[] = [];
     const uniqueTools = [...new Set<ContextToolName>(selectedTools)];
     if (uniqueTools.includes("get_yesterday_history")) {
@@ -56,6 +58,11 @@ export async function replyToUser(
     if (uniqueTools.includes("get_guild_settings")) tasks.push(getGuildSystemPrompt(input.guildId).then((value) => { systemPrompt = value; }));
     if (uniqueTools.includes("get_user_persona")) tasks.push(getUserPersona(input.discordUserId).then((value) => { userPersona = value; }));
     await Promise.all(tasks);
+    const notes: string[] = [];
+    if (uniqueTools.includes("get_yesterday_history") && history.length === 0) notes.push("A consulta ao histórico de ontem não encontrou mensagens. Não invente o conteúdo de uma conversa; informe que não há registros desse período.");
+    if (uniqueTools.includes("get_recent_history") && history.length === 0) notes.push("A consulta ao histórico recente não encontrou mensagens anteriores nesta conversa. Não invente fatos sobre conversas passadas.");
+    if (uniqueTools.includes("get_user_memories") && memories.length === 0) notes.push("A consulta não encontrou memórias salvas para esta pessoa. Não afirme lembrar de fatos pessoais que não estejam disponíveis.");
+    contextResultNote = notes.join("\\n");
     logger.info({
       feature: "chat-pipeline",
       phase: "context-loaded",
@@ -68,13 +75,14 @@ export async function replyToUser(
   }
 
   const provisional = await provisionalPromise;
-  const hasAdditionalContext = history.length > 0 || memories.length > 0 || Boolean(systemPrompt?.trim()) || Boolean(userPersona?.trim());
+  const hasAdditionalContext = selectedTools.length > 0 || history.length > 0 || memories.length > 0 || Boolean(systemPrompt?.trim()) || Boolean(userPersona?.trim());
   if (provisional && !hasAdditionalContext) {
     for (const chunk of provisionalChunks) await onChunk?.(chunk);
     answer = provisional;
   } else {
     const generationStartedAt = performance.now();
-    answer = await generateAnswer(history, input.prompt, memories, systemPrompt, userPersona, onChunk);
+    const finalSystemPrompt = [systemPrompt?.trim(), contextResultNote].filter(Boolean).join("\\n\\n") || undefined;
+    answer = await generateAnswer(history, input.prompt, memories, finalSystemPrompt, userPersona, onChunk);
     logger.info({ feature: "chat-pipeline", phase: "generation-finished", userId: input.discordUserId, durationMs: Math.round(performance.now() - generationStartedAt), replacedProvisional: Boolean(provisional) }, "Answer generation finished");
   }
 
