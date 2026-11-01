@@ -39,9 +39,8 @@ async function discoverGeminiModels(): Promise<string[]> {
     do {
       const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
       url.searchParams.set("pageSize", "1000");
-      url.searchParams.set("key", env.GEMINI_API_KEY);
       if (pageToken) url.searchParams.set("pageToken", pageToken);
-      const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      const response = await fetch(url, { headers: { "x-goog-api-key": env.GEMINI_API_KEY }, signal: AbortSignal.timeout(12000) });
       if (!response.ok) throw new Error("Gemini model discovery returned HTTP " + response.status);
       const payload = await response.json() as GeminiModelListResponse;
       for (const model of payload.models ?? []) {
