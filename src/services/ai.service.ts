@@ -468,8 +468,10 @@ export async function generateAnswer(
   const available = persistedCandidates.filter((candidate) =>
     !candidate.retryAfter || Date.parse(candidate.retryAfter) <= now,
   );
+  const savedCandidate = saved ? persistedCandidates.find((candidate) => candidate.provider === saved.provider && candidate.model === saved.model) : undefined;
+  const savedCoolingDown = Boolean(savedCandidate?.retryAfter && Date.parse(savedCandidate.retryAfter) > now);
   const ordered = [
-    ...(saved ? [saved] : []),
+    ...(saved && !savedCoolingDown ? [saved] : []),
     ...available.filter((candidate) => !saved || candidate.provider !== saved.provider || candidate.model !== saved.model),
   ];
   for (const candidate of ordered) {
