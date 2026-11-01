@@ -65,8 +65,11 @@ client.on(Events.MessageCreate, async (message) => {
   const startedAt = Date.now();
   logger.info({ feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, promptChars: prompt.length }, "Bot mention received");
   let typingInterval: ReturnType<typeof setInterval> | undefined;
+  let liveReply: Awaited<ReturnType<typeof message.reply>> | undefined;
+  let streamedText = "";
+  let lastPublishedLength = 0;
+  let lastEditAt = 0;
   try {
-    // O Discord expira o indicador; renove enquanto a resposta estiver sendo preparada.
     await message.channel.sendTyping();
     typingInterval = setInterval(() => {
       void message.channel.sendTyping().catch((typingError) => {
@@ -74,18 +77,41 @@ client.on(Events.MessageCreate, async (message) => {
       });
     }, 8000);
 
-    const answer = await replyToUser({ discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt });
-    const chunks = answer.match(/[\s\S]{1,1900}/g) ?? [answer];
-    await message.reply(chunks[0] ?? "Não consegui gerar uma resposta.");
-    if (typingInterval) {
-      clearInterval(typingInterval);
-      typingInterval = undefined;
-    }
-    for (const chunk of chunks.slice(1)) await message.channel.send(chunk);
-    logger.info({ feature: "discord-mention", userId: message.author.id, channelId: message.channelId, durationMs: Date.now() - startedAt, responseChars: answer.length }, "Bot mention handled");
+    const answer = await replyToUser(
+      { discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt },
+      async (chunk) => {
+        streamedText += chunk;
+        const visibleText = streamedText.slice(0, 1900);
+        if (!liveReply) {
+          liveReply = await message.reply(visibleText);
+          if (typingInterval) {
+            clearInterval(typingInterval);
+            typingInterval = undefined;
+          }
+          lastPublishedLength = visibleText.length;
+          lastEditAt = Date.now();
+          return;
+        }
+        if (visibleText.length - lastPublishedLength >= 120 || Date.now() - lastEditAt >= 900) {
+          await liveReply.edit(visibleText);
+          lastPublishedLength = visibleText.length;
+          lastEditAt = Date.now();
+        }
+      },
+    );
+
+    const firstChunk = answer.slice(0, 1900) || "Não consegui gerar uma resposta.";
+    if (liveReply) await liveReply.edit(firstChunk);
+    else liveReply = await message.reply(firstChunk);
+    const remainder = answer.slice(1900);
+    const chunks = remainder.match(/[\s\S]{1,1900}/g) ?? [];
+    for (const chunk of chunks) await message.channel.send(chunk);
+    logger.info({ feature: "discord-mention", userId: message.author.id, channelId: message.channelId, durationMs: Date.now() - startedAt, responseChars: answer.length, streamed: true }, "Bot mention handled");
   } catch (error) {
-    logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length }, "Failed to handle mention");
-    await message.reply("Desculpe, ocorreu um erro ao processar sua mensagem.");
+    logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length, streamedChars: streamedText.length }, "Failed to handle mention");
+    const errorText = "Desculpe, ocorreu um erro ao processar sua mensagem.";
+    if (liveReply) await liveReply.edit(streamedText.slice(0, 1850) + "\n\n" + errorText);
+    else await message.reply(errorText);
   } finally {
     if (typingInterval) clearInterval(typingInterval);
   }
