@@ -11,25 +11,43 @@ const dirty = new Set<string>();
 function db(): DatabaseSync { if (!database) throw new Error("SQLite cache is not initialized"); return database; }
 export function cacheGet<T extends CacheRow>(collection: string, key: string): T | undefined {
   if (!database || (!hydrated.has(collection) && !dirty.has(collection))) return undefined;
-  const row = db().prepare("select payload from cache_records where collection=? and record_key=?").get(collection,key) as {payload?:string}|undefined;
-  if (!row?.payload) return undefined;
-  try { return JSON.parse(row.payload) as T; } catch { return undefined; }
+  try {
+    const row = db().prepare("select payload from cache_records where collection=? and record_key=?").get(collection,key) as {payload?:string}|undefined;
+    if (!row?.payload) return undefined;
+    return JSON.parse(row.payload) as T;
+  } catch (error) {
+    logger.warn({ err: error, feature: "sqlite-cache", collection }, "Cache read failed; falling back to Supabase");
+    return undefined;
+  }
 }
 export function cacheList<T extends CacheRow>(collection: string): T[] {
   if (!database) return [];
-  const rows = db().prepare("select payload from cache_records where collection=?").all(collection) as Array<{payload:string}>;
-  return rows.flatMap(row => { try { return [JSON.parse(row.payload) as T]; } catch { return []; } });
+  try {
+    const rows = db().prepare("select payload from cache_records where collection=?").all(collection) as Array<{payload:string}>;
+    return rows.flatMap(row => { try { return [JSON.parse(row.payload) as T]; } catch { return []; } });
+  } catch (error) {
+    logger.warn({ err: error, feature: "sqlite-cache", collection }, "Cache collection read failed");
+    return [];
+  }
 }
 export function isCacheHydrated(collection:string):boolean { return Boolean(database) && hydrated.has(collection); }
 export function cacheSet(collection:string,key:string,value:CacheRow):void {
   if (!database) return;
-  db().prepare("insert into cache_records(collection,record_key,payload,updated_at) values(?,?,?,?) on conflict(collection,record_key) do update set payload=excluded.payload,updated_at=excluded.updated_at").run(collection,key,JSON.stringify(value),new Date().toISOString());
-  dirty.add(collection);
+  try {
+    db().prepare("insert into cache_records(collection,record_key,payload,updated_at) values(?,?,?,?) on conflict(collection,record_key) do update set payload=excluded.payload,updated_at=excluded.updated_at").run(collection,key,JSON.stringify(value),new Date().toISOString());
+    dirty.add(collection);
+  } catch (error) {
+    logger.warn({ err: error, feature: "sqlite-cache", collection }, "Cache write failed; Supabase remains authoritative");
+  }
 }
 export function cacheDelete(collection:string,key:string):void {
   if (!database) return;
-  db().prepare("delete from cache_records where collection=? and record_key=?").run(collection,key);
-  dirty.add(collection);
+  try {
+    db().prepare("delete from cache_records where collection=? and record_key=?").run(collection,key);
+    dirty.add(collection);
+  } catch (error) {
+    logger.warn({ err: error, feature: "sqlite-cache", collection }, "Cache deletion failed; Supabase remains authoritative");
+  }
 }
 function cacheReplaceCollection(collection:string,rows:Array<{key:string;value:CacheRow}>):void {
   if (!database) return;
