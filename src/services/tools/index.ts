@@ -103,6 +103,18 @@ function convert(input: string): string | null {
 
 const tools: LocalTool[] = [
   {
+    name: "fuso_horario",
+    description: "Horário atual em fusos horários e cidades conhecidas",
+    match: (s) => /\\b(que horas|horário|hora atual)\\b.*\\b(em|no|na)\\b/.test(s),
+    run: (s) => {
+      const zones: Record<string, string> = { lisboa: "Europe/Lisbon", londres: "Europe/London", "nova york": "America/New_York", "los angeles": "America/Los_Angeles", tóquio: "Asia/Tokyo", tokyo: "Asia/Tokyo", "são paulo": "America/Sao_Paulo", brasília: "America/Sao_Paulo", "brasília": "America/Sao_Paulo", "buenos aires": "America/Argentina/Buenos_Aires", "paris": "Europe/Paris", "dubai": "Asia/Dubai" };
+      const city = Object.keys(zones).find((name) => s.includes(name));
+      if (!city) return "Informe uma cidade conhecida. Exemplo: que horas são em Lisboa?";
+      const zone = zones[city];
+      return `Agora em ${city.replace(/\\b\\w/g, (v) => v.toUpperCase())}: ${new Intl.DateTimeFormat("pt-BR", { timeZone: zone, dateStyle: "full", timeStyle: "medium" }).format(new Date())} (\\${zone}).`;
+    },
+  },
+  {
     name: "data_hora",
     description: "Data, hora, dia da semana e fuso horário local",
     match: (s) => /\b(que dia|qual (?:é )?a data|data de hoje|que horas|hora atual|horário atual|data e hora|dia da semana|hoje é que dia)\b/.test(s),
@@ -136,6 +148,33 @@ const tools: LocalTool[] = [
       if (nums.length < 2) return "Informe o percentual e o valor. Exemplo: quanto é 15% de 200?";
       const pct = nums[0], base = nums[1], value = base * pct / 100;
       return `${pct}% de ${base} = ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 8 }).format(value)}.`;
+    },
+  },
+  {
+    name: "conversao_temperatura",
+    description: "Conversão entre Celsius, Fahrenheit e Kelvin",
+    match: (s) => /\\b(-?\\d+(?:[.,]\\d+)?)\\s*°?\\s*(celsius|fahrenheit|kelvin|°c|°f|°k)\\s+(?:para|em)\\s*(celsius|fahrenheit|kelvin|°c|°f|°k)\\b/.test(s),
+    run: (s) => {
+      const m = s.match(/(-?\\d+(?:[.,]\\d+)?)\\s*°?\\s*(celsius|fahrenheit|kelvin|°c|°f|°k)\\s+(?:para|em)\\s*(celsius|fahrenheit|kelvin|°c|°f|°k)/);
+      if (!m) return "Exemplo: 25 Celsius para Fahrenheit.";
+      const n = Number(m[1].replace(",", "."));
+      const unit = (v: string) => v.includes("c") ? "C" : v.includes("f") ? "F" : "K";
+      const from = unit(m[2]), to = unit(m[3]);
+      const celsius = from === "C" ? n : from === "F" ? (n - 32) * 5 / 9 : n - 273.15;
+      const result = to === "C" ? celsius : to === "F" ? celsius * 9 / 5 + 32 : celsius + 273.15;
+      return `${n}°${from} = ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 }).format(result)}°${to}.`;
+    },
+  },
+  {
+    name: "diferenca_datas",
+    description: "Calcula dias entre duas datas no formato DD/MM/AAAA",
+    match: (s) => /\\b(dias entre|diferença entre datas|quantos dias)\\b/.test(s),
+    run: (s) => {
+      const dates = [...s.matchAll(/\\b(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4})\\b/g)];
+      if (dates.length < 2) return "Informe duas datas no formato DD/MM/AAAA.";
+      const toUtc = (m: RegExpMatchArray) => Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+      const days = Math.abs(toUtc(dates[1]) - toUtc(dates[0])) / 86400000;
+      return `A diferença entre as datas é de ${days} dia(s).`;
     },
   },
   {
