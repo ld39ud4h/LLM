@@ -62,7 +62,7 @@ export async function replyToUser(
     if (uniqueTools.includes("get_yesterday_history") && history.length === 0) notes.push("A consulta ao histórico de ontem não encontrou mensagens. Não invente o conteúdo de uma conversa; informe que não há registros desse período.");
     if (uniqueTools.includes("get_recent_history") && history.length === 0) notes.push("A consulta ao histórico recente não encontrou mensagens anteriores nesta conversa. Não invente fatos sobre conversas passadas.");
     if (uniqueTools.includes("get_user_memories") && memories.length === 0) notes.push("A consulta não encontrou memórias salvas para esta pessoa. Não afirme lembrar de fatos pessoais que não estejam disponíveis.");
-    contextResultNote = notes.join("\\n");
+    contextResultNote = notes.join("\n");
     logger.info({
       feature: "chat-pipeline",
       phase: "context-loaded",
@@ -81,7 +81,7 @@ export async function replyToUser(
     answer = provisional;
   } else {
     const generationStartedAt = performance.now();
-    const finalSystemPrompt = [systemPrompt?.trim(), contextResultNote].filter(Boolean).join("\\n\\n") || undefined;
+    const finalSystemPrompt = [systemPrompt?.trim(), contextResultNote].filter(Boolean).join("\n\n") || undefined;
     answer = await generateAnswer(history, input.prompt, memories, finalSystemPrompt, userPersona, onChunk);
     logger.info({ feature: "chat-pipeline", phase: "generation-finished", userId: input.discordUserId, durationMs: Math.round(performance.now() - generationStartedAt), replacedProvisional: Boolean(provisional) }, "Answer generation finished");
   }
