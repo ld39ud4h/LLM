@@ -454,21 +454,24 @@ export async function generateAnswer(
     return undefined;
   };
 
-  if (saved?.provider === "openrouter") {
-    const answer = await tryOpenRouterFallbacks();
+  // The startup bootstrap selects and persists a known-good model. Use it immediately
+  // so the first user request does not need to rediscover provider catalogs.
+  if (saved) {
+    const answer = await attemptProvider(saved);
     if (answer) return answer;
   }
 
+  // Only discover alternatives after the persisted model is absent or has failed.
   const discoveredModels = await discoverGeminiModels();
-  const geminiOrder = saved?.provider === "gemini" && discoveredModels.includes(saved.model)
-    ? [saved.model, ...discoveredModels.filter((model) => model !== saved.model)]
+  const geminiOrder = saved?.provider === "gemini"
+    ? discoveredModels.filter((model) => model !== saved.model)
     : discoveredModels;
   for (const model of geminiOrder) {
     const answer = await attemptProvider({ provider: "gemini", model });
     if (answer) return answer;
   }
 
-  if (env.OPENROUTER_API_KEY && saved?.provider !== "openrouter") {
+  if (env.OPENROUTER_API_KEY) {
     const answer = await tryOpenRouterFallbacks();
     if (answer) return answer;
   }

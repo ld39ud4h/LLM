@@ -9,6 +9,7 @@ import { buildAnswerMessages, buildAnswerPreview } from "./services/response-mes
 import { registerSlashCommands } from "./services/command-registration.service.js";
 import { replyToUser } from "./services/chat.service.js";
 import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
+import { initializeAIProvider } from "./services/ai-bootstrap.service.js";
 
 const healthServer = createServer((request, response) => {
   if (request.method === "GET" && request.url === "/api/helth") {
@@ -209,4 +210,5 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 logger.info({ feature: "startup", nodeEnv: env.NODE_ENV, logLevel: env.LOG_LEVEL, geminiModel: env.GEMINI_MODEL }, "Starting Discord bot");
 try { await initializeLocalCache(); } catch (error) { logger.warn({ err: error, feature: "sqlite-cache" }, "Local cache initialization failed; continuing with Supabase"); }
+try { await initializeAIProvider(); } catch (error) { logger.error({ err: error, feature: "ai-bootstrap" }, "AI provider bootstrap failed; generation will use runtime fallback"); }
 await client.login(env.DISCORD_TOKEN);
