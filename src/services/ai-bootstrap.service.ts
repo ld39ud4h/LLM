@@ -46,7 +46,7 @@ async function listOpenRouterModels(): Promise<string[]> {
 
 async function probeGemini(model: string): Promise<boolean> {
   try {
-    const response=await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/\${encodeURIComponent(model)}:generateContent\`,{
+    const response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
       method:"POST",
       headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},
       body:JSON.stringify({contents:[{role:"user",parts:[{text:PROBE_PROMPT}]}],generationConfig:{temperature:0,maxOutputTokens:2}}),
