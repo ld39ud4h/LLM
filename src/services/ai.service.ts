@@ -18,8 +18,8 @@ const DEFAULT_SYSTEM_INSTRUCTION = [
 
 function selectTools(prompt: string): Tool[] {
   const tools: Tool[] = [];
-  if (/\\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\\b/i.test(prompt)) tools.push({ googleSearch: {} });
-  if (/\\b(calcul[ae]|equação|código|script|programa|análise de dados|estatística|simulação|planilha|algoritmo)\\b/i.test(prompt)) tools.push({ codeExecution: {} });
+  if (/\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\b/i.test(prompt)) tools.push({ googleSearch: {} });
+  if (/\b(calcul[ae]|equação|código|script|programa|análise de dados|estatística|simulação|planilha|algoritmo)\b/i.test(prompt)) tools.push({ codeExecution: {} });
   return tools;
 }
 
@@ -47,8 +47,8 @@ async function discoverGeminiModels(): Promise<string[]> {
       discoverySucceeded = true;
       for (const model of payload.models ?? []) {
         if (!model.supportedGenerationMethods?.includes("generateContent")) continue;
-        const id = (model.baseModelId || model.name?.replace(/^models\\//, "") || "").trim();
-        const version = id.match(/^gemini-(\\d+)\\.(\\d+)/i);
+        const id = (model.baseModelId || model.name?.replace(/^models\//, "") || "").trim();
+        const version = id.match(/^gemini-(\d+)\.(\d+)/i);
         if (!version) continue;
         const major = Number(version[1]);
         const minor = Number(version[2]);
@@ -69,7 +69,7 @@ async function discoverGeminiModels(): Promise<string[]> {
   };
   const byVersion = new Map<string, string[]>();
   for (const id of new Set(discovered)) {
-    const match = id.match(/^gemini-(\\d+)\\.(\\d+)/i);
+    const match = id.match(/^gemini-(\d+)\.(\d+)/i);
     if (!match) continue;
     const version = match[1] + "." + match[2];
     byVersion.set(version, [...(byVersion.get(version) ?? []), id]);
@@ -86,7 +86,7 @@ async function discoverGeminiModels(): Promise<string[]> {
 
   if (!discoverySucceeded) {
     const configured = env.GEMINI_MODEL;
-    const match = configured.match(/^gemini-(\\d+)\\.(\\d+)/i);
+    const match = configured.match(/^gemini-(\d+)\.(\d+)/i);
     if (match) {
       const major = Number(match[1]);
       const minor = Number(match[2]);
@@ -218,7 +218,7 @@ async function streamOpenRouter(
     while (true) {
       const { value, done } = await reader.read();
       buffer += decoder.decode(value, { stream: !done });
-      const lines = buffer.split(/\\r?\\n/);
+      const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? "";
       for (const line of lines) await processLine(line);
       if (done) break;
