@@ -128,6 +128,17 @@ client.on(Events.MessageCreate, async (message) => {
     const answer = await replyToUser(
       { discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt },
       async (chunk) => {
+        if (chunk === "\u0000RESET_STREAM\u0000") {
+          streamedAnswer = "";
+          lastEditAt = 0;
+          pendingEdit = pendingEdit.then(async () => {
+            if (!liveReply) return;
+            await liveReply.edit("Só mais um instante — estou conferindo o contexto para fechar a resposta.");
+            liveIsV2 = false;
+          });
+          await pendingEdit;
+          return;
+        }
         streamedAnswer += chunk;
         if (Date.now() - lastEditAt < 650) return;
         lastEditAt = Date.now();

@@ -18,12 +18,10 @@ function planContext(prompt: string): ContextPlan {
   const asksHistory = /\b(lembra|recorda|conversamos|falamos|discutimos|assunto que|aquela conversa|outra conversa|da outra vez|anteriormente|historico|mensagens anteriores)\b/.test(text);
   const asksMemory = /\b(minha memoria|o que voce lembra|lembra de mim|lembra que|recorda que|salvei|te pedi para lembrar)\b/.test(text);
   const history: ContextPlan["history"] = asksYesterday ? "yesterday" : asksHistory ? "recent" : "none";
-  return {
-    history,
-    memories: asksMemory || asksHistory,
-    settings: true,
-  };
+  return { history, memories: asksMemory || asksHistory, settings: true };
 }
+
+const RESET_STREAM = "\u0000RESET_STREAM\u0000";
 
 export async function replyToUser(
   input: { discordUserId: string; username: string; channelId: string; guildId: string | null; prompt: string },
@@ -39,12 +37,20 @@ export async function replyToUser(
 
   const plan = planContext(input.prompt);
   const isGreeting = plan.history === "none" && !plan.memories && !plan.settings;
-  const dbStartedAt = performance.now();
   let conversationId: string | undefined;
   let history: Awaited<ReturnType<typeof getHistory>> = [];
   let memories: string[] = [];
   let systemPrompt: string | undefined;
   let userPersona: string | undefined;
+  let answer = "";
+
+  // A recuperação de contexto e a primeira geração começam juntas. Em pedidos
+  // explícitos de lembrança, não publicamos uma prévia que poderia inventar fatos.
+  const canPreviewSafely = !isGreeting && plan.history === "none" && !plan.memories;
+  const provisionalPromise = canPreviewSafely
+    ? generateAnswer([], input.prompt, [], undefined, undefined, onChunk)
+    : Promise.resolve(undefined);
+  const dbStartedAt = performance.now();
 
   if (!isGreeting) {
     conversationId = await getOrCreateConversation(input.discordUserId, input.username, input.channelId);
@@ -71,11 +77,19 @@ export async function replyToUser(
     historyScope: plan.history,
     memoriesQueried: plan.memories,
     settingsQueried: plan.settings,
+    provisionalInParallel: canPreviewSafely,
   }, "Selective chat context loaded");
 
-  const generationStartedAt = performance.now();
-  const answer = await generateAnswer(history, input.prompt, memories, systemPrompt, userPersona, onChunk);
-  logger.info({ feature: "chat-pipeline", phase: "generation-finished", userId: input.discordUserId, durationMs: Math.round(performance.now() - generationStartedAt) }, "Answer generation finished");
+  const provisional = await provisionalPromise;
+  const hasAdditionalContext = history.length > 0 || memories.length > 0 || Boolean(systemPrompt?.trim()) || Boolean(userPersona?.trim());
+  if (provisional && !hasAdditionalContext) {
+    answer = provisional;
+  } else {
+    if (provisional) await onChunk?.(RESET_STREAM);
+    const generationStartedAt = performance.now();
+    answer = await generateAnswer(history, input.prompt, memories, systemPrompt, userPersona, onChunk);
+    logger.info({ feature: "chat-pipeline", phase: "generation-finished", userId: input.discordUserId, durationMs: Math.round(performance.now() - generationStartedAt), replacedProvisional: Boolean(provisional) }, "Answer generation finished");
+  }
 
   if (conversationId) {
     const persistenceStartedAt = performance.now();
