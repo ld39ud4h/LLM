@@ -4,6 +4,7 @@ import { generateAnswer, type TextChunkHandler } from "./ai.service.js";
 import { getGuildSystemPrompt } from "./guild-settings.service.js";
 import { getHistory, getOrCreateConversation, saveMessage } from "./conversation.service.js";
 import { listMemories } from "./memory.service.js";
+import { getUserPersona } from "./user-persona.service.js";
 import { runLocalTool } from "./tools/index.js";
 
 export async function replyToUser(
@@ -20,10 +21,11 @@ export async function replyToUser(
 
   const dbStartedAt = performance.now();
   const conversationId = await getOrCreateConversation(input.discordUserId, input.username, input.channelId);
-  const [history, memories, systemPrompt] = await Promise.all([
+  const [history, memories, systemPrompt, userPersona] = await Promise.all([
     getHistory(conversationId),
     listMemories(input.discordUserId),
     getGuildSystemPrompt(input.guildId),
+    getUserPersona(input.discordUserId),
   ]);
   logger.info({
     feature: "chat-pipeline",
@@ -32,10 +34,11 @@ export async function replyToUser(
     durationMs: Math.round(performance.now() - dbStartedAt),
     historyTurns: history.length,
     memoryCount: memories.length,
+    hasCustomPersona: Boolean(userPersona),
   }, "Chat context loaded");
 
   const generationStartedAt = performance.now();
-  const answer = await generateAnswer(history, input.prompt, memories, systemPrompt, onChunk);
+  const answer = await generateAnswer(history, input.prompt, memories, systemPrompt, userPersona, onChunk);
   logger.info({ feature: "chat-pipeline", phase: "generation-finished", userId: input.discordUserId, durationMs: Math.round(performance.now() - generationStartedAt) }, "Answer generation finished");
 
   const persistenceStartedAt = performance.now();
