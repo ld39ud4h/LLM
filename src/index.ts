@@ -57,10 +57,23 @@ client.on(Events.MessageCreate, async (message) => {
     await message.reply("Olá! Mencione-me junto com sua pergunta ou use /ask.");
     return;
   }
+  // Evita chamar Supabase/Gemini para mensagens sem conteúdo semântico, como "." ou "!!!".
+  if (/^[\s\p{P}\p{S}]+$/u.test(prompt)) {
+    await message.reply("Oi! Estou por aqui. Pode mandar sua pergunta 😊");
+    return;
+  }
   const startedAt = Date.now();
   logger.info({ feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, promptChars: prompt.length }, "Bot mention received");
+  let typingInterval: ReturnType<typeof setInterval> | undefined;
   try {
+    // O Discord expira o indicador; renove enquanto a resposta estiver sendo preparada.
     await message.channel.sendTyping();
+    typingInterval = setInterval(() => {
+      void message.channel.sendTyping().catch((typingError) => {
+        logger.warn({ err: typingError, feature: "discord-typing", channelId: message.channelId }, "Failed to refresh typing indicator");
+      });
+    }, 8000);
+
     const answer = await replyToUser({ discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt });
     const chunks = answer.match(/[\s\S]{1,1900}/g) ?? [answer];
     await message.reply(chunks[0] ?? "Não consegui gerar uma resposta.");
@@ -69,6 +82,8 @@ client.on(Events.MessageCreate, async (message) => {
   } catch (error) {
     logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length }, "Failed to handle mention");
     await message.reply("Desculpe, ocorreu um erro ao processar sua mensagem.");
+  } finally {
+    if (typingInterval) clearInterval(typingInterval);
   }
 });
 
