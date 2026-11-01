@@ -8,8 +8,6 @@ import { getUserPersona } from "./user-persona.service.js";
 import { runLocalTool } from "./tools/index.js";
 import { planContextTools, type ContextToolName } from "./context-planner.service.js";
 
-const RESET_STREAM = "\u0000RESET_STREAM\u0000";
-
 function isGreeting(prompt: string): boolean {
   const text = prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   return /^(?:(?:oi|ola|opa|eai|e ai|bom dia|boa tarde|boa noite|salve|fala|hey|hello|hi)\b[\s,!.?]*(?:(?:meu amigo|amigo|chat|tudo bem|beleza|como vai|pode me ajudar|consegue me ajudar)[\s,!.?]*)*)$/i.test(text);
@@ -35,8 +33,9 @@ export async function replyToUser(
   let userPersona: string | undefined;
   let answer = "";
 
+  const provisionalChunks: string[] = [];
   const provisionalPromise = !greeting
-    ? generateAnswer([], input.prompt, [], undefined, undefined, onChunk)
+    ? generateAnswer([], input.prompt, [], undefined, undefined, async (chunk) => { provisionalChunks.push(chunk); })
     : Promise.resolve(undefined);
   const dbStartedAt = performance.now();
 
@@ -68,9 +67,9 @@ export async function replyToUser(
   const provisional = await provisionalPromise;
   const hasAdditionalContext = history.length > 0 || memories.length > 0 || Boolean(systemPrompt?.trim()) || Boolean(userPersona?.trim());
   if (provisional && !hasAdditionalContext) {
+    for (const chunk of provisionalChunks) await onChunk?.(chunk);
     answer = provisional;
   } else {
-    if (provisional) await onChunk?.(RESET_STREAM);
     const generationStartedAt = performance.now();
     answer = await generateAnswer(history, input.prompt, memories, systemPrompt, userPersona, onChunk);
     logger.info({ feature: "chat-pipeline", phase: "generation-finished", userId: input.discordUserId, durationMs: Math.round(performance.now() - generationStartedAt), replacedProvisional: Boolean(provisional) }, "Answer generation finished");
