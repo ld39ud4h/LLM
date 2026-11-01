@@ -158,7 +158,10 @@ client.on(Events.MessageCreate, async (message) => {
   } catch (error) {
     logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length }, "Failed to handle mention");
     const errorText = "Desculpe, ocorreu um erro ao processar sua mensagem.";
-    if (liveReply) await liveReply.edit(errorText);
+    if (liveReply && liveIsV2) {
+      const errorPreview = buildAnswerPreview("**" + errorText + "**", true);
+      await liveReply.edit({ ...errorPreview, content: null });
+    } else if (liveReply) await liveReply.edit(errorText);
     else await message.reply(errorText);
   } finally {
     if (typingInterval) clearInterval(typingInterval);
