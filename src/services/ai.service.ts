@@ -1,5 +1,5 @@
 import { performance } from "node:perf_hooks";
-import { ThinkingLevel } from "@google/genai";
+import { ThinkingLevel, type Tool } from "@google/genai";
 import { gemini, GEMINI_MODEL } from "../clients/gemini.js";
 import { logger } from "../config/logger.js";
 import type { ChatTurn } from "./conversation.service.js";
@@ -15,7 +15,7 @@ const DEFAULT_SYSTEM_INSTRUCTION = [
 ].join("\n");
 
 function selectTools(prompt: string) {
-  const tools: Array<Record<string, unknown>> = [];
+  const tools: Tool[] = [];
   if (/\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\b/i.test(prompt)) {
     tools.push({ googleSearch: {} });
   }
