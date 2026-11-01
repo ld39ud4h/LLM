@@ -1,4 +1,4 @@
-import { env } from "../config/env.js";
+import { env } from "../../config/env.js";
 
 export type ToolResult = { handled: true; name: string; response: string } | { handled: false };
 
@@ -20,6 +20,7 @@ function calculate(expression: string): number {
   let i = 0;
   const primary = (): number => {
     const token = tokens[i++];
+    if (token === undefined) throw new Error("Expressão incompleta");
     if (token === "+") return primary();
     if (token === "-") return -primary();
     if (token === "(") {
@@ -146,7 +147,7 @@ const tools: LocalTool[] = [
     run: (s) => {
       const nums = s.match(/-?\d+(?:[.,]\d+)?/g)?.map((v) => Number(v.replace(",", "."))) ?? [];
       if (nums.length < 2) return "Informe o percentual e o valor. Exemplo: quanto é 15% de 200?";
-      const pct = nums[0], base = nums[1], value = base * pct / 100;
+      const pct = nums[0]!, base = nums[1]!, value = base * pct / 100;
       return `${pct}% de ${base} = ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 8 }).format(value)}.`;
     },
   },
@@ -173,7 +174,7 @@ const tools: LocalTool[] = [
       const dates = [...s.matchAll(/\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/g)];
       if (dates.length < 2) return "Informe duas datas no formato DD/MM/AAAA.";
       const toUtc = (m: RegExpMatchArray) => Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-      const days = Math.abs(toUtc(dates[1]) - toUtc(dates[0])) / 86400000;
+      const days = Math.abs(toUtc(dates[1]!) - toUtc(dates[0]!)) / 86400000;
       return `A diferença entre as datas é de ${days} dia(s).`;
     },
   },
