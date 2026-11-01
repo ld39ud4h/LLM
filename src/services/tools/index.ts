@@ -104,6 +104,18 @@ function convert(input: string): string | null {
 
 const tools: LocalTool[] = [
   {
+    name: "conversa_casual",
+    description: "Respostas instantâneas para cumprimentos, agradecimentos e pequenas interações",
+    match: (s) => /^(oi+|olá+|ola+|e aí[!?., ]*|bom dia[!?., ]*|boa tarde[!?., ]*|boa noite[!?., ]*|tudo bem[!?., ]*|como vai[!?., ]*|como você está[!?., ]*|obrigad[oa]s?[!?., ]*|valeu[!?., ]*|até mais[!?., ]*|tchau[!?., ]*)$/i.test(s.trim()),
+    run: (s) => {
+      if (/^(obrigad|valeu)/i.test(s)) return "Por nada! Estou à disposição. 😊";
+      if (/^(tchau|até mais)/i.test(s)) return "Até mais! Quando precisar, é só chamar. 👋";
+      if (/^(bom dia|boa tarde|boa noite)/i.test(s)) return "Olá! Como posso ajudar você hoje? 😊";
+      if (/^(tudo bem|como vai|como você está)/i.test(s)) return "Tudo bem por aqui! E com você? Como posso ajudar?";
+      return "Oi! Estou por aqui. O que você gostaria de fazer?";
+    },
+  },
+  {
     name: "fuso_horario",
     description: "Horário atual em fusos horários e cidades conhecidas",
     match: (s) => /\b(que horas|horário|hora atual)\b.*\b(em|no|na)\b/.test(s),
