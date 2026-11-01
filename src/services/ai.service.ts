@@ -51,19 +51,17 @@ async function discoverGeminiModels(): Promise<string[]> {
       const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
       url.searchParams.set("pageSize", "1000");
       if (pageToken) url.searchParams.set("pageToken", pageToken);
-      const response = await fetch(url, { headers: { "x-goog-api-key": env.GEMINI_API_KEY }, signal: AbortSignal.timeout(12000) });
+      const response = await fetch(url, {
+        headers: { "x-goog-api-key": env.GEMINI_API_KEY },
+        signal: AbortSignal.timeout(12000),
+      });
       if (!response.ok) throw new Error("Gemini model discovery returned HTTP " + response.status);
       const payload = await response.json() as GeminiModelListResponse;
       discoverySucceeded = true;
       for (const model of payload.models ?? []) {
         if (!model.supportedGenerationMethods?.includes("generateContent")) continue;
         const id = (model.baseModelId || model.name?.replace(/^models\//, "") || "").trim();
-        const version = id.match(/^gemini-(\d+)\.(\d+)/i);
-        if (!version) continue;
-        const major = Number(version[1]);
-        const minor = Number(version[2]);
-        const inRange = (major > 2 || (major === 2 && minor >= 5)) && (major < 3 || (major === 3 && minor <= 8));
-        if (inRange) discovered.push(id);
+        if (/^gemini-\d+\.\d+/i.test(id)) discovered.push(id);
       }
       pageToken = payload.nextPageToken;
     } while (pageToken);
@@ -89,22 +87,21 @@ async function discoverGeminiModels(): Promise<string[]> {
     const [bMajor = 0, bMinor = 0] = b.split(".").map(Number);
     return bMajor - aMajor || bMinor - aMinor;
   });
-  const models = versions.slice(0, 2).map((version) =>
+  // Keep one preferred model from each of the three newest available versions.
+  const models = versions.slice(0, 3).map((version) =>
     (byVersion.get(version) ?? []).sort((a, b) => variantRank(a) - variantRank(b) || a.localeCompare(b))[0],
   ).filter((model): model is string => Boolean(model));
 
-  if (!discoverySucceeded) {
+  if (!discoverySucceeded && models.length === 0) {
     const configured = env.GEMINI_MODEL;
-    const match = configured.match(/^gemini-(\d+)\.(\d+)/i);
-    if (match) {
-      const major = Number(match[1]);
-      const minor = Number(match[2]);
-      if ((major > 2 || (major === 2 && minor >= 5)) && (major < 3 || (major === 3 && minor <= 8))) models.unshift(configured);
-    }
+    if (/^gemini-\d+\.\d+/i.test(configured)) models.push(configured);
   }
   const finalModels = [...new Set(models)];
   modelCache = { models: finalModels, expiresAt: Date.now() + 10 * 60 * 1000 };
-  logger.info({ feature: "ai-model-discovery", modelCount: finalModels.length, models: finalModels }, "Top available Gemini model catalog ready");
+  logger.info(
+    { feature: "ai-model-discovery", modelCount: finalModels.length, models: finalModels, selection: "three-newest-available-versions" },
+    "Top three available Gemini model versions ready",
+  );
   return finalModels;
 }
 
@@ -179,7 +176,7 @@ async function streamOpenRouter(
       Authorization: "Bearer " + env.OPENROUTER_API_KEY,
       "Content-Type": "application/json",
       "HTTP-Referer": "https://llm-2n2e.onrender.com",
-      "X-Title": "Discord LLM Assistant",
+      "X-OpenRouter-Title": "Discord LLM Assistant",
     },
     body: JSON.stringify({
       model: env.OPENROUTER_MODEL,
@@ -206,20 +203,52 @@ async function streamOpenRouter(
   let firstChunkMs: number | undefined;
   let chunkCount = 0;
   let actualModel: string | undefined;
-  const processLine = async (line: string) => {
-    if (!line.startsWith("data:")) return;
-    const data = line.slice(5).trim();
-    if (!data || data === "[DONE]") return;
-    const event = JSON.parse(data) as {
+  let receivedDone = false;
+
+  const processFrame = async (frame: string) => {
+    const dataLines = frame
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).replace(/^ /, ""));
+    if (!dataLines.length) return; // Ignore SSE comments, keep-alives and metadata.
+    const data = dataLines.join("\n").trim();
+    if (!data) return;
+    if (data === "[DONE]") {
+      receivedDone = true;
+      return;
+    }
+
+    let event: {
       model?: string;
-      choices?: Array<{ delta?: { content?: string | Array<{ type?: string; text?: string }> }; message?: { content?: string } }>;
+      error?: { code?: number | string; message?: string; metadata?: { error_type?: string } };
+      choices?: Array<{
+        delta?: { content?: string | Array<{ type?: string; text?: string }> };
+        message?: { content?: string };
+        finish_reason?: string | null;
+      }>;
     };
+    try {
+      event = JSON.parse(data) as typeof event;
+    } catch {
+      throw new Error("OpenRouter sent an invalid SSE JSON frame");
+    }
+
+    if (event.error) {
+      throw new Error(
+        "OpenRouter stream error " + (event.error.code ?? "unknown") + ": " +
+        (event.error.message ?? event.error.metadata?.error_type ?? "Unknown provider error"),
+      );
+    }
     if (event.model) actualModel = event.model;
-    const delta = event.choices?.[0]?.delta?.content;
+    const choice = event.choices?.[0];
+    if (choice?.finish_reason === "error") {
+      throw new Error("OpenRouter stream ended with finish_reason=error");
+    }
+    const delta = choice?.delta?.content;
     const text = typeof delta === "string"
       ? delta
-      : Array.isArray(delta) ? delta.map((part) => part.text ?? "").join("") : event.choices?.[0]?.message?.content ?? "";
-    if (!text) return;
+      : Array.isArray(delta) ? delta.map((part) => part.text ?? "").join("") : choice?.message?.content ?? "";
+    if (!text) return; // Includes terminal and usage-only frames.
     if (firstChunkMs === undefined) firstChunkMs = Math.round(performance.now() - startedAt);
     chunkCount++;
     answer += text;
@@ -227,18 +256,24 @@ async function streamOpenRouter(
   };
 
   try {
-    while (true) {
+    while (!receivedDone) {
       const { value, done } = await reader.read();
       buffer += decoder.decode(value, { stream: !done });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() ?? "";
-      for (const line of lines) await processLine(line);
+      const frames = buffer.split(/\r?\n\r?\n/);
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) {
+        await processFrame(frame);
+        if (receivedDone) break;
+      }
       if (done) break;
     }
-    if (buffer.trim()) await processLine(buffer.trim());
+    if (!receivedDone && buffer.trim()) await processFrame(buffer);
   } finally {
+    if (!receivedDone) await reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
+
+  if (!receivedDone) throw new Error("OpenRouter stream closed before the [DONE] terminator");
   answer = answer.trim();
   if (!answer) throw new Error("OpenRouter returned an empty streaming response");
   return { answer, firstChunkMs, chunkCount, actualModel };
