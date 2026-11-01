@@ -39,10 +39,8 @@ export async function replyToUser(
   logger.info({ feature: "chat-pipeline", phase: "generation-finished", userId: input.discordUserId, durationMs: Math.round(performance.now() - generationStartedAt) }, "Answer generation finished");
 
   const persistenceStartedAt = performance.now();
-  await Promise.all([
-    saveMessage(conversationId, "user", input.prompt),
-    saveMessage(conversationId, "model", answer),
-  ]);
+  await saveMessage(conversationId, "user", input.prompt);
+  await saveMessage(conversationId, "model", answer);
   logger.info({ feature: "chat-pipeline", phase: "messages-saved", userId: input.discordUserId, durationMs: Math.round(performance.now() - persistenceStartedAt), totalDurationMs: Math.round(performance.now() - requestStartedAt) }, "Conversation messages saved");
   return answer;
 }
