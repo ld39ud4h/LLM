@@ -380,15 +380,15 @@ export async function generateAnswer(
     tried.add(key);
     const attemptStartedAt = performance.now();
     let emittedText = false;
-    // Buffer each provider's complete answer so invalid output never leaks into Discord before fallback.
-    const publishValidatedAnswer = async (answer: string) => {
-      if (!onChunk) return;
-      const chunks = answer.match(/[\\s\\S]{1,900}/g) ?? [];
-      for (const chunk of chunks) {
-        emittedText = true;
-        await onChunk(chunk);
-      }
-    };
+    // Forward provider chunks immediately. If a provider fails after publishing,
+    // do not silently switch models and mix two answers in the same Discord message.
+    const publishChunk: TextChunkHandler | undefined = onChunk
+      ? async (chunk) => {
+          if (!chunk) return;
+          emittedText = true;
+          await onChunk(chunk);
+        }
+      : undefined;
     logger.info({
       feature: "ai-fallback",
       provider: attempt.provider,
@@ -398,10 +398,9 @@ export async function generateAnswer(
     }, "AI provider attempt started");
     try {
       const result = attempt.provider === "gemini"
-        ? await streamGemini(attempt.model, history, prompt, systemInstruction, selectedTools, temperature)
-        : await streamOpenRouter(attempt.model, history, prompt, systemInstruction, temperature);
+        ? await streamGemini(attempt.model, history, prompt, systemInstruction, selectedTools, temperature, publishChunk)
+        : await streamOpenRouter(attempt.model, history, prompt, systemInstruction, temperature, publishChunk);
       validateModelAnswer(result.answer);
-      await publishValidatedAnswer(result.answer);
       await setActiveAIModel({ provider: attempt.provider, model: result.actualModel ?? attempt.model });
       logger.info({
         feature: "ai-fallback",
