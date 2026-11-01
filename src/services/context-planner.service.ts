@@ -20,16 +20,22 @@ const allowed = new Set<string>(declarations.map((item) => item.name));
 
 function parseGeminiCalls(payload: any): ContextToolName[] {
   const parts = payload?.candidates?.[0]?.content?.parts ?? [];
-  return [...new Set(parts
-    .filter((part: any) => part.functionCall?.name && allowed.has(part.functionCall.name))
-    .map((part: any) => part.functionCall.name as ContextToolName))];
+  const selected: ContextToolName[] = [];
+  for (const part of parts as Array<{ functionCall?: { name?: string } }>) {
+    const name = part.functionCall?.name;
+    if (name && allowed.has(name) && !selected.includes(name as ContextToolName)) selected.push(name as ContextToolName);
+  }
+  return selected;
 }
 
 function parseOpenRouterCalls(payload: any): ContextToolName[] {
   const calls = payload?.choices?.[0]?.message?.tool_calls ?? [];
-  return [...new Set(calls
-    .filter((call: any) => allowed.has(call.function?.name))
-    .map((call: any) => call.function.name as ContextToolName))];
+  const selected: ContextToolName[] = [];
+  for (const call of calls as Array<{ function?: { name?: string } }>) {
+    const name = call.function?.name;
+    if (name && allowed.has(name) && !selected.includes(name as ContextToolName)) selected.push(name as ContextToolName);
+  }
+  return selected;
 }
 
 async function planWithGemini(prompt: string): Promise<ContextToolName[]> {
