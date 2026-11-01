@@ -16,8 +16,8 @@ const DEFAULT_SYSTEM_INSTRUCTION = [
 
 function selectTools(prompt: string): Tool[] {
   const tools: Tool[] = [];
-  if (/\\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\\b/i.test(prompt)) tools.push({ googleSearch: {} });
-  if (/\\b(calcul[ae]|equação|código|script|programa|análise de dados|estatística|simulação|planilha|algoritmo)\\b/i.test(prompt)) tools.push({ codeExecution: {} });
+  if (/\b(hoje|agora|atual|atualmente|últim[oa]s?|recente|notícia|notícias|preço|cotação|clima|tempo|previsão|pesquise|pesquisar|busque|fonte|202[5-9])\b/i.test(prompt)) tools.push({ googleSearch: {} });
+  if (/\b(calcul[ae]|equação|código|script|programa|análise de dados|estatística|simulação|planilha|algoritmo)\b/i.test(prompt)) tools.push({ codeExecution: {} });
   return tools;
 }
 
@@ -31,10 +31,10 @@ export async function generateAnswer(
   onChunk?: TextChunkHandler,
 ): Promise<string> {
   const memoryContext = memories.length
-    ? "\\n\\nMemórias salvas explicitamente pelo usuário (use apenas quando relevantes):\\n" + memories.map((item) => "- " + item).join("\\n")
+    ? "\n\nMemórias salvas explicitamente pelo usuário (use apenas quando relevantes):\n" + memories.map((item) => "- " + item).join("\n")
     : "";
   const personaContext = customSystemPrompt?.trim()
-    ? "\\n\\nPersonalidade adicional configurada pelos administradores do servidor:\\n" + customSystemPrompt.trim()
+    ? "\n\nPersonalidade adicional configurada pelos administradores do servidor:\n" + customSystemPrompt.trim()
     : "";
   const contents = [
     ...history.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
