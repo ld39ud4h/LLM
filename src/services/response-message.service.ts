@@ -208,3 +208,38 @@ export function buildAnswerMessages(answer: string, userId: string) {
     };
   });
 }
+
+/** Builds a live preview payload without creating a "remember" token per edit. */
+export function buildAnswerPreview(answer: string) {
+  const normalized = answer.trim();
+  if (!normalized) return { content: "✍️ Estou preparando a resposta..." };
+
+  if (isSimpleAnswer(normalized)) {
+    return { content: normalized.slice(0, 1900), allowedMentions: { parse: [] as const } };
+  }
+
+  const blocks = paginateBlocks(parseMarkdownBlocks(normalized))[0] ?? [
+    { kind: "text" as const, content: normalized.slice(0, 3500) },
+  ];
+  const container = new ContainerBuilder().setAccentColor(0x5865f2);
+  for (const block of blocks) {
+    if (block.kind === "separator") {
+      container.addSeparatorComponents(
+        new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+      );
+    } else {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(block.content));
+    }
+  }
+  container
+    .addSeparatorComponents(
+      new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+    )
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# Consultor · Gerando resposta…"));
+
+  return {
+    components: [container],
+    flags: MessageFlags.IsComponentsV2 as const,
+    allowedMentions: { parse: [] as const },
+  };
+}
