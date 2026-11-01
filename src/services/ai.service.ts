@@ -3,7 +3,7 @@ import { ThinkingLevel, type Tool } from "@google/genai";
 import { gemini } from "../clients/gemini.js";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
-import { getActiveAIModel, setActiveAIModel, type ActiveAIModel } from "./ai-runtime-state.service.js";
+import { getAIProviderState, setAIProviderState, markAIModelUnavailable, type ActiveAIModel } from "./ai-runtime-state.service.js";
 import { DEFAULT_USER_PERSONA } from "./user-persona.service.js";
 import type { ChatTurn } from "./conversation.service.js";
 
@@ -378,7 +378,9 @@ export async function generateAnswer(
   const selectedTools = selectTools(prompt);
   const precisionTask = isPrecisionTask(prompt, selectedTools);
   const temperature = precisionTask ? 0 : 0.7;
-  const saved = await getActiveAIModel();
+  const providerState = await getAIProviderState();
+  const saved = providerState.active;
+  const persistedCandidates = providerState.availableModels;
   const tried = new Set<string>();
   let lastError: unknown;
 
@@ -417,7 +419,12 @@ export async function generateAnswer(
         ? await streamGemini(attempt.model, history, prompt, systemInstruction, selectedTools, temperature, publishChunk)
         : await streamOpenRouter(attempt.model, history, prompt, systemInstruction, temperature, publishChunk);
       validateModelAnswer(result.answer);
-      await setActiveAIModel({ provider: attempt.provider, model: result.actualModel ?? attempt.model });
+      const actual = { provider: attempt.provider, model: result.actualModel ?? attempt.model };
+      const candidates = persistedCandidates.length
+        ? persistedCandidates.map((candidate) => candidate.provider === actual.provider && candidate.model === actual.model
+            ? { provider: candidate.provider, model: candidate.model } : candidate)
+        : [{ ...actual }];
+      await setAIProviderState(actual, candidates);
       logger.info({
         feature: "ai-fallback",
         provider: attempt.provider,
@@ -440,6 +447,7 @@ export async function generateAnswer(
         emittedText,
       }, "AI provider failed; checking next fallback");
       if (emittedText) throw error;
+      await markAIModelUnavailable(attempt);
       return undefined;
     }
   };
@@ -454,26 +462,32 @@ export async function generateAnswer(
     return undefined;
   };
 
-  // The startup bootstrap selects and persists a known-good model. Use it immediately
-  // so the first user request does not need to rediscover provider catalogs.
-  if (saved) {
-    const answer = await attemptProvider(saved);
+  // Use the persisted, startup-probed catalog first. No provider catalog HTTP
+  // calls are needed on the normal request/failover path.
+  const now = Date.now();
+  const available = persistedCandidates.filter((candidate) =>
+    !candidate.retryAfter || Date.parse(candidate.retryAfter) <= now,
+  );
+  const ordered = [
+    ...(saved ? [saved] : []),
+    ...available.filter((candidate) => !saved || candidate.provider !== saved.provider || candidate.model !== saved.model),
+  ];
+  for (const candidate of ordered) {
+    const answer = await attemptProvider(candidate);
     if (answer) return answer;
   }
 
-  // Only discover alternatives after the persisted model is absent or has failed.
-  const discoveredModels = await discoverGeminiModels();
-  const geminiOrder = saved?.provider === "gemini"
-    ? discoveredModels.filter((model) => model !== saved.model)
-    : discoveredModels;
-  for (const model of geminiOrder) {
-    const answer = await attemptProvider({ provider: "gemini", model });
-    if (answer) return answer;
-  }
-
-  if (env.OPENROUTER_API_KEY) {
-    const answer = await tryOpenRouterFallbacks();
-    if (answer) return answer;
+  // Compatibility path for installations that have not completed the startup
+  // bootstrap yet or whose persisted catalog is empty.
+  if (persistedCandidates.length === 0) {
+    for (const model of await discoverGeminiModels()) {
+      const answer = await attemptProvider({ provider: "gemini", model });
+      if (answer) return answer;
+    }
+    if (env.OPENROUTER_API_KEY) {
+      const answer = await tryOpenRouterFallbacks();
+      if (answer) return answer;
+    }
   }
 
   logger.error({

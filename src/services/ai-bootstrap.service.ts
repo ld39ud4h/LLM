@@ -1,6 +1,6 @@
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
-import { getActiveAIModel, setActiveAIModel, type ActiveAIModel } from "./ai-runtime-state.service.js";
+import { getAIProviderState, setAIProviderState, type ActiveAIModel } from "./ai-runtime-state.service.js";
 
 interface GeminiModel { name?: string; baseModelId?: string; supportedGenerationMethods?: string[]; }
 interface OpenRouterModel { id?: string; pricing?: { prompt?: string; completion?: string }; architecture?: { output_modalities?: string[] }; }
@@ -74,8 +74,9 @@ async function probeOpenRouter(model: string): Promise<boolean> {
 }
 
 export async function initializeAIProvider(): Promise<void> {
-  const saved=await getActiveAIModel();
-  if(saved?.provider && saved.model) {
+  const persisted=await getAIProviderState();
+  const saved=persisted.active;
+  if(saved?.provider && saved.model && persisted.availableModels.length > 0) {
     logger.info({feature:"ai-bootstrap",provider:saved.provider,model:saved.model},"Persisted AI model found; skipping provider discovery and startup probes");
     return;
   }
@@ -99,6 +100,6 @@ export async function initializeAIProvider(): Promise<void> {
     logger.error({feature:"ai-bootstrap",geminiCandidates:geminiModels.length,openRouterCandidates:openRouterModels.length},"No AI model passed the quick startup probe; runtime fallback remains enabled");
     return;
   }
-  await setActiveAIModel(selected);
+  await setAIProviderState(selected, healthy.map((result)=>result.candidate));
   logger.info({feature:"ai-bootstrap",selectedProvider:selected.provider,selectedModel:selected.model,testedModels:results.length,healthyModels:healthy.length,probeTimeoutMs:PROBE_TIMEOUT_MS},"Startup AI model selected and persisted");
 }
