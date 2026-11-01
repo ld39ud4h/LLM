@@ -75,22 +75,16 @@ async function discoverGeminiModels(): Promise<string[]> {
     if (/pro/i.test(id)) return 2;
     return 3;
   };
-  const byVersion = new Map<string, string[]>();
-  for (const id of new Set(discovered)) {
+  const versionOf = (id: string): [number, number] => {
     const match = id.match(/^gemini-(\d+)\.(\d+)/i);
-    if (!match) continue;
-    const version = match[1] + "." + match[2];
-    byVersion.set(version, [...(byVersion.get(version) ?? []), id]);
-  }
-  const versions = [...byVersion.keys()].sort((a, b) => {
-    const [aMajor = 0, aMinor = 0] = a.split(".").map(Number);
-    const [bMajor = 0, bMinor = 0] = b.split(".").map(Number);
-    return bMajor - aMajor || bMinor - aMinor;
-  });
-  // Keep one preferred model from each of the three newest available versions.
-  const models = versions.slice(0, 3).map((version) =>
-    (byVersion.get(version) ?? []).sort((a, b) => variantRank(a) - variantRank(b) || a.localeCompare(b))[0],
-  ).filter((model): model is string => Boolean(model));
+    return match ? [Number(match[1]), Number(match[2])] : [0, 0];
+  };
+  // Rank every currently available model by version, then prefer Flash variants.
+  const models = [...new Set(discovered)].sort((a, b) => {
+    const [aMajor, aMinor] = versionOf(a);
+    const [bMajor, bMinor] = versionOf(b);
+    return bMajor - aMajor || bMinor - aMinor || variantRank(a) - variantRank(b) || a.localeCompare(b);
+  }).slice(0, 3);
 
   if (!discoverySucceeded && models.length === 0) {
     const configured = env.GEMINI_MODEL;
@@ -99,7 +93,7 @@ async function discoverGeminiModels(): Promise<string[]> {
   const finalModels = [...new Set(models)];
   modelCache = { models: finalModels, expiresAt: Date.now() + 10 * 60 * 1000 };
   logger.info(
-    { feature: "ai-model-discovery", modelCount: finalModels.length, models: finalModels, selection: "three-newest-available-versions" },
+    { feature: "ai-model-discovery", modelCount: finalModels.length, models: finalModels, selection: "three-newest-available-models" },
     "Top three available Gemini model versions ready",
   );
   return finalModels;
