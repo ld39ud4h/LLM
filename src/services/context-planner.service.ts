@@ -62,7 +62,7 @@ async function planWithGemini(prompt: string): Promise<ContextToolName[]> {
         "Se a pessoa disser ontem, escolha apenas get_yesterday_history, nunca get_recent_history.",
         "Referência a conversas anteriores usa get_recent_history. Memória pessoal salva usa get_user_memories.",
         "Configurações/persona somente quando relevantes. Chamadas independentes podem ser selecionadas juntas.",
-        "Ferramentas locais podem calcular, converter unidades/temperaturas, obter data e hora e calcular diferenças de datas. Escolha-as somente quando a operação for pedida e os dados forem suficientes. Use o menor conjunto de ferramentas. Não invente ferramentas ou argumentos."
+        "Ferramentas locais podem calcular, converter unidades/temperaturas, obter data e hora e calcular diferenças de datas. Para horário em outra cidade, escolha fuso_horario; para data/hora local, escolha data_hora, não ambas. Escolha ferramentas somente quando a operação for pedida e os dados forem suficientes. Use o menor conjunto de ferramentas. Não invente ferramentas ou argumentos."
       ].join("\n") }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       tools: [{ functionDeclarations: allDeclarations }],
