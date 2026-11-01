@@ -47,7 +47,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     try {
       await rememberGeneratedAnswer(interaction.user.id, token);
-      await interaction.update({ content: "🧠 Lembrei disso! Salvei a resposta na sua memória.", components: [], embeds: [] });
+      await interaction.reply({ content: "🧠 Lembrei disso! Salvei a resposta na sua memória.", ephemeral: true });
     } catch (error) {
       logger.error({ err: error, userId: interaction.user.id }, "Could not remember generated answer");
       await interaction.reply({ content: "Não consegui salvar essa resposta. Talvez o botão tenha expirado.", ephemeral: true });
@@ -94,20 +94,17 @@ client.on(Events.MessageCreate, async (message) => {
   const mentionPattern = new RegExp("<@!?" + client.user.id + ">", "g");
   const prompt = message.content.replace(mentionPattern, "").trim();
   if (!prompt) {
-    await message.reply("Olá! Mencione-me junto com sua pergunta ou use /ask.");
+    for (const payload of buildAnswerMessages("Olá! Mencione-me junto com sua pergunta ou use /ask.", message.author.id)) await message.reply(payload);
     return;
   }
   if (/^[\s\p{P}\p{S}]+$/u.test(prompt)) {
-    await message.reply("Oi! Estou por aqui. Pode mandar sua pergunta 😊");
+    for (const payload of buildAnswerMessages("Oi! Estou por aqui. Pode mandar sua pergunta 😊", message.author.id)) await message.reply(payload);
     return;
   }
   const startedAt = Date.now();
   logger.info({ feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, promptChars: prompt.length }, "Bot mention received");
   let typingInterval: ReturnType<typeof setInterval> | undefined;
   let liveReply: Awaited<ReturnType<typeof message.reply>> | undefined;
-  let streamedText = "";
-  let lastPublishedLength = 0;
-  let lastEditAt = 0;
   try {
     await message.channel.sendTyping();
     typingInterval = setInterval(() => {
