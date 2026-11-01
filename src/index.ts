@@ -3,6 +3,7 @@ import { Client, Events, GatewayIntentBits } from "discord.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { commands } from "./commands/index.js";
+import { handlePersonaComponent } from "./commands/persona.js";
 import { replyToUser } from "./services/chat.service.js";
 
 const healthServer = createServer((request, response) => {
@@ -26,6 +27,18 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith("persona:select:")) {
+    try {
+      await handlePersonaComponent(interaction);
+    } catch (error) {
+      logger.error({ err: error, feature: "persona-component", userId: interaction.user.id }, "Persona component interaction failed");
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "Não consegui processar sua escolha. Tente novamente.", ephemeral: true }).catch(() => undefined);
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
   const command = commandMap.get(interaction.commandName);
   if (!command) {
@@ -57,7 +70,6 @@ client.on(Events.MessageCreate, async (message) => {
     await message.reply("Olá! Mencione-me junto com sua pergunta ou use /ask.");
     return;
   }
-  // Evita chamar Supabase/Gemini para mensagens sem conteúdo semântico, como "." ou "!!!".
   if (/^[\s\p{P}\p{S}]+$/u.test(prompt)) {
     await message.reply("Oi! Estou por aqui. Pode mandar sua pergunta 😊");
     return;
