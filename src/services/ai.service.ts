@@ -159,19 +159,19 @@ async function discoverOpenRouterModels(): Promise<string[]> {
 function validateModelAnswer(answer: string): void {
   const text = answer.trim();
   if (!text) throw new Error("Model returned an empty response");
-  const letters = text.match(/\\p{L}/gu) ?? [];
+  const letters = text.match(/\p{L}/gu) ?? [];
   if (letters.length < 3) return; // Short greetings and emoji-only conversational replies are valid.
   const scripts = [
-    /\\p{Script=Cyrillic}/u, /\\p{Script=Han}/u, /\\p{Script=Hiragana}/u,
-    /\\p{Script=Katakana}/u, /\\p{Script=Hangul}/u, /\\p{Script=Arabic}/u,
-    /\\p{Script=Devanagari}/u, /\\p{Script=Greek}/u, /\\p{Script=Hebrew}/u,
+    /\p{Script=Cyrillic}/u, /\p{Script=Han}/u, /\p{Script=Hiragana}/u,
+    /\p{Script=Katakana}/u, /\p{Script=Hangul}/u, /\p{Script=Arabic}/u,
+    /\p{Script=Devanagari}/u, /\p{Script=Greek}/u, /\p{Script=Hebrew}/u,
   ];
   const foreignScriptCount = scripts.filter((pattern) => pattern.test(text)).length;
-  const foreignLetters = (text.match(/[\\p{Script=Cyrillic}\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}\\p{Script=Arabic}\\p{Script=Devanagari}\\p{Script=Greek}\\p{Script=Hebrew}]/gu) ?? []).length;
+  const foreignLetters = (text.match(/[\p{Script=Cyrillic}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Arabic}\p{Script=Devanagari}\p{Script=Greek}\p{Script=Hebrew}]/gu) ?? []).length;
   if (foreignScriptCount >= 3 || foreignLetters / letters.length > 0.2 && foreignScriptCount >= 2) {
     throw new Error("Model response rejected by multilingual-gibberish validation");
   }
-  if (/(.)\\1{24,}/u.test(text)) throw new Error("Model response rejected due to repeated-character corruption");
+  if (/(.)\1{24,}/u.test(text)) throw new Error("Model response rejected due to repeated-character corruption");
 }
 
 function buildSystemInstruction(memories: string[], customSystemPrompt?: string, userPersona?: string): string {
