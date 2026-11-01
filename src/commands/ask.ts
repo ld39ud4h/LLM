@@ -52,7 +52,7 @@ export const askCommand = {
       logger.error({ err: error, userId: interaction.user.id, streamedChars: streamedText.length }, "Failed to handle /ask");
       const errorText = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
       if (liveIsV2) {
-        const errorPreview = buildAnswerPreview("**" + errorText + "**");
+        const errorPreview = buildAnswerPreview("**" + errorText + "**", true);
         await interaction.editReply({ ...errorPreview, content: null });
       } else {
         await interaction.editReply(streamedText ? streamedText.slice(0, 1800) + "\n\n" + errorText : errorText);
