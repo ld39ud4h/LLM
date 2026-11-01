@@ -155,7 +155,7 @@ function paginateBlocks(blocks: ContentBlock[]): ContentBlock[][] {
 
 export function buildAnswerMessages(answer: string, userId: string) {
   const normalized = answer || "Não consegui gerar uma resposta.";
-  if (isSimpleAnswer(normalized) && !forceComponentsV2) {
+  if (isSimpleAnswer(normalized)) {
     const token = registerAnswerForRemember(userId, normalized.trim());
     const button = new ButtonBuilder()
       .setCustomId("answer:remember:" + userId + ":" + token)
@@ -214,7 +214,7 @@ export function buildAnswerPreview(answer: string, forceComponentsV2 = false) {
   const normalized = answer.trim();
   if (!normalized) return { content: "✍️ Estou preparando a resposta..." };
 
-  if (isSimpleAnswer(normalized)) {
+  if (isSimpleAnswer(normalized) && !forceComponentsV2) {
     return { content: normalized.slice(0, 1900), allowedMentions: { parse: [] as const } };
   }
 
