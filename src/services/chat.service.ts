@@ -11,7 +11,7 @@ type ContextPlan = { history: "none" | "recent" | "yesterday"; memories: boolean
 
 function planContext(prompt: string): ContextPlan {
   const text = prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const greetingOnly = /^(?:oi|ola|opa|eai|e aí|bom dia|boa tarde|boa noite|salve|fala|hey|hello|hi)(?:\s+(?:meu amigo|amigo|chat|tudo bem|beleza|como vai))*[!?.,\s]*$/i.test(text);
+  const greetingOnly = /^(?:(?:oi|ola|opa|eai|e ai|bom dia|boa tarde|boa noite|salve|fala|hey|hello|hi)\\b[\\s,!.?]*(?:(?:meu amigo|amigo|chat|tudo bem|beleza|como vai|pode me ajudar|consegue me ajudar)[\\s,!.?]*)*)$/i.test(text);
   if (greetingOnly) return { history: "none", memories: false, settings: false };
 
   const asksYesterday = /\b(ontem|conversa de ontem|mensagens de ontem|o que falamos ontem)\b/.test(text);
