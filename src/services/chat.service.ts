@@ -6,22 +6,14 @@ import { getHistory, getHistoryForDate, getOrCreateConversation, saveMessage } f
 import { listMemories } from "./memory.service.js";
 import { getUserPersona } from "./user-persona.service.js";
 import { runLocalTool } from "./tools/index.js";
-
-type ContextPlan = { history: "none" | "recent" | "yesterday"; memories: boolean; settings: boolean };
-
-function planContext(prompt: string): ContextPlan {
-  const text = prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const greetingOnly = /^(?:(?:oi|ola|opa|eai|e ai|bom dia|boa tarde|boa noite|salve|fala|hey|hello|hi)\b[\s,!.?]*(?:(?:meu amigo|amigo|chat|tudo bem|beleza|como vai|pode me ajudar|consegue me ajudar)[\s,!.?]*)*)$/i.test(text);
-  if (greetingOnly) return { history: "none", memories: false, settings: false };
-
-  const asksYesterday = /\b(ontem|conversa de ontem|mensagens de ontem|o que falamos ontem)\b/.test(text);
-  const asksHistory = /\b(lembra|recorda|conversamos|falamos|discutimos|assunto que|aquela conversa|outra conversa|da outra vez|anteriormente|historico|mensagens anteriores)\b/.test(text);
-  const asksMemory = /\b(minha memoria|o que voce lembra|lembra de mim|lembra que|recorda que|salvei|te pedi para lembrar)\b/.test(text);
-  const history: ContextPlan["history"] = asksYesterday ? "yesterday" : asksHistory ? "recent" : "none";
-  return { history, memories: asksMemory || asksHistory, settings: true };
-}
+import { planContextTools, type ContextToolName } from "./context-planner.service.js";
 
 const RESET_STREAM = "\u0000RESET_STREAM\u0000";
+
+function isGreeting(prompt: string): boolean {
+  const text = prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return /^(?:(?:oi|ola|opa|eai|e ai|bom dia|boa tarde|boa noite|salve|fala|hey|hello|hi)\b[\s,!.?]*(?:(?:meu amigo|amigo|chat|tudo bem|beleza|como vai|pode me ajudar|consegue me ajudar)[\s,!.?]*)*)$/i.test(text);
+}
 
 export async function replyToUser(
   input: { discordUserId: string; username: string; channelId: string; guildId: string | null; prompt: string },
@@ -35,8 +27,7 @@ export async function replyToUser(
     return toolResult.response;
   }
 
-  const plan = planContext(input.prompt);
-  const isGreeting = plan.history === "none" && !plan.memories && !plan.settings;
+  const greeting = isGreeting(input.prompt);
   let conversationId: string | undefined;
   let history: Awaited<ReturnType<typeof getHistory>> = [];
   let memories: string[] = [];
@@ -44,41 +35,35 @@ export async function replyToUser(
   let userPersona: string | undefined;
   let answer = "";
 
-  // A recuperação de contexto e a primeira geração começam juntas. Em pedidos
-  // explícitos de lembrança, não publicamos uma prévia que poderia inventar fatos.
-  const canPreviewSafely = !isGreeting && plan.history === "none" && !plan.memories;
-  const provisionalPromise = canPreviewSafely
+  const provisionalPromise = !greeting
     ? generateAnswer([], input.prompt, [], undefined, undefined, onChunk)
     : Promise.resolve(undefined);
   const dbStartedAt = performance.now();
 
-  if (!isGreeting) {
+  if (!greeting) {
     conversationId = await getOrCreateConversation(input.discordUserId, input.username, input.channelId);
+    const selectedTools = await planContextTools(input.prompt);
     const tasks: Promise<unknown>[] = [];
-    const historyTask = plan.history === "yesterday"
-      ? getHistoryForDate(conversationId, "yesterday")
-      : plan.history === "recent" ? getHistory(conversationId) : Promise.resolve([]);
-    tasks.push(historyTask.then((value) => { history = value as typeof history; }));
-    if (plan.memories) tasks.push(listMemories(input.discordUserId).then((value) => { memories = value; }));
-    if (plan.settings) {
-      tasks.push(getGuildSystemPrompt(input.guildId).then((value) => { systemPrompt = value; }));
-      tasks.push(getUserPersona(input.discordUserId).then((value) => { userPersona = value; }));
+    const uniqueTools = [...new Set<ContextToolName>(selectedTools)];
+    if (uniqueTools.includes("get_yesterday_history")) {
+      tasks.push(getHistoryForDate(conversationId, "yesterday").then((value) => { history = value; }));
+    } else if (uniqueTools.includes("get_recent_history")) {
+      tasks.push(getHistory(conversationId).then((value) => { history = value; }));
     }
+    if (uniqueTools.includes("get_user_memories")) tasks.push(listMemories(input.discordUserId).then((value) => { memories = value; }));
+    if (uniqueTools.includes("get_guild_settings")) tasks.push(getGuildSystemPrompt(input.guildId).then((value) => { systemPrompt = value; }));
+    if (uniqueTools.includes("get_user_persona")) tasks.push(getUserPersona(input.discordUserId).then((value) => { userPersona = value; }));
     await Promise.all(tasks);
+    logger.info({
+      feature: "chat-pipeline",
+      phase: "context-loaded",
+      userId: input.discordUserId,
+      durationMs: Math.round(performance.now() - dbStartedAt),
+      selectedTools: uniqueTools,
+      historyTurns: history.length,
+      memoryCount: memories.length,
+    }, "Model-selected context tools completed");
   }
-
-  logger.info({
-    feature: "chat-pipeline",
-    phase: "context-loaded",
-    userId: input.discordUserId,
-    durationMs: Math.round(performance.now() - dbStartedAt),
-    historyTurns: history.length,
-    memoryCount: memories.length,
-    historyScope: plan.history,
-    memoriesQueried: plan.memories,
-    settingsQueried: plan.settings,
-    provisionalInParallel: canPreviewSafely,
-  }, "Selective chat context loaded");
 
   const provisional = await provisionalPromise;
   const hasAdditionalContext = history.length > 0 || memories.length > 0 || Boolean(systemPrompt?.trim()) || Boolean(userPersona?.trim());

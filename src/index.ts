@@ -8,6 +8,7 @@ import { rememberGeneratedAnswer } from "./services/response-memory.service.js";
 import { buildAnswerMessages, buildAnswerPreview } from "./services/response-message.service.js";
 import { registerSlashCommands } from "./services/command-registration.service.js";
 import { replyToUser } from "./services/chat.service.js";
+import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
 
 const healthServer = createServer((request, response) => {
   if (request.method === "GET" && request.url === "/api/helth") {
@@ -197,6 +198,7 @@ process.on("uncaughtException", (error) => {
 const shutdown = (signal: string) => {
   logger.info({ feature: "process", signal }, "Graceful shutdown started");
   client.destroy();
+  closeLocalCache();
   healthServer.close(() => {
     logger.info({ feature: "process", signal }, "HTTP server closed");
     process.exit(0);
@@ -206,4 +208,5 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 logger.info({ feature: "startup", nodeEnv: env.NODE_ENV, logLevel: env.LOG_LEVEL, geminiModel: env.GEMINI_MODEL }, "Starting Discord bot");
+try { await initializeLocalCache(); } catch (error) { logger.warn({ err: error, feature: "sqlite-cache" }, "Local cache initialization failed; continuing with Supabase"); }
 await client.login(env.DISCORD_TOKEN);
