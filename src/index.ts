@@ -77,6 +77,10 @@ client.on(Events.MessageCreate, async (message) => {
     const answer = await replyToUser({ discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt });
     const chunks = answer.match(/[\s\S]{1,1900}/g) ?? [answer];
     await message.reply(chunks[0] ?? "Não consegui gerar uma resposta.");
+    if (typingInterval) {
+      clearInterval(typingInterval);
+      typingInterval = undefined;
+    }
     for (const chunk of chunks.slice(1)) await message.channel.send(chunk);
     logger.info({ feature: "discord-mention", userId: message.author.id, channelId: message.channelId, durationMs: Date.now() - startedAt, responseChars: answer.length }, "Bot mention handled");
   } catch (error) {
