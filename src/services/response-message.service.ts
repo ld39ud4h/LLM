@@ -155,7 +155,7 @@ function paginateBlocks(blocks: ContentBlock[]): ContentBlock[][] {
 
 export function buildAnswerMessages(answer: string, userId: string) {
   const normalized = answer || "Não consegui gerar uma resposta.";
-  if (isSimpleAnswer(normalized)) {
+  if (isSimpleAnswer(normalized) && !forceComponentsV2) {
     const token = registerAnswerForRemember(userId, normalized.trim());
     const button = new ButtonBuilder()
       .setCustomId("answer:remember:" + userId + ":" + token)
@@ -210,7 +210,7 @@ export function buildAnswerMessages(answer: string, userId: string) {
 }
 
 /** Builds a live preview payload without creating a "remember" token per edit. */
-export function buildAnswerPreview(answer: string) {
+export function buildAnswerPreview(answer: string, forceComponentsV2 = false) {
   const normalized = answer.trim();
   if (!normalized) return { content: "✍️ Estou preparando a resposta..." };
 
