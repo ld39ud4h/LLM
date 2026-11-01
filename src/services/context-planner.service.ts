@@ -8,7 +8,6 @@ export type ContextToolName =
   | "get_user_memories"
   | "get_guild_settings"
   | "get_user_persona"
-  | "conversa_casual"
   | "fuso_horario"
   | "data_hora"
   | "conversao_unidades"
