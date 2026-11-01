@@ -1,7 +1,9 @@
 import { performance } from "node:perf_hooks";
 import { ThinkingLevel, type Tool } from "@google/genai";
-import { gemini, GEMINI_MODEL } from "../clients/gemini.js";
+import { gemini } from "../clients/gemini.js";
+import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
+import { getActiveAIModel, setActiveAIModel, type ActiveAIModel } from "./ai-runtime-state.service.js";
 import type { ChatTurn } from "./conversation.service.js";
 
 const DEFAULT_SYSTEM_INSTRUCTION = [
@@ -23,6 +25,184 @@ function selectTools(prompt: string): Tool[] {
 
 export type TextChunkHandler = (chunk: string) => Promise<void> | void;
 
+interface GeminiModelListResponse {
+  models?: Array<{ name?: string; baseModelId?: string; supportedGenerationMethods?: string[] }>;
+  nextPageToken?: string;
+}
+
+let modelCache: { models: string[]; expiresAt: number } | undefined;
+async function discoverGeminiModels(): Promise<string[]> {
+  if (modelCache && modelCache.expiresAt > Date.now()) return modelCache.models;
+  const discovered: string[] = [];
+  let pageToken: string | undefined;
+  try {
+    do {
+      const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
+      url.searchParams.set("pageSize", "1000");
+      url.searchParams.set("key", env.GEMINI_API_KEY);
+      if (pageToken) url.searchParams.set("pageToken", pageToken);
+      const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      if (!response.ok) throw new Error("Gemini model discovery returned HTTP " + response.status);
+      const payload = await response.json() as GeminiModelListResponse;
+      for (const model of payload.models ?? []) {
+        if (!model.supportedGenerationMethods?.includes("generateContent")) continue;
+        const id = (model.baseModelId || model.name?.replace(/^models\//, "") || "").trim();
+        if (/^gemini-(?:2\.6|2\.5)(?:-|$)/i.test(id)) discovered.push(id);
+      }
+      pageToken = payload.nextPageToken;
+    } while (pageToken);
+  } catch (error) {
+    logger.warn({ err: error, feature: "ai-model-discovery" }, "Could not refresh Gemini model catalog");
+  }
+
+  const unique = [...new Set(discovered)];
+  const variantRank = (id: string) => {
+    if (/flash-lite/i.test(id)) return 1;
+    if (/flash/i.test(id)) return 0;
+    if (/pro/i.test(id)) return 2;
+    return 3;
+  };
+  unique.sort((a, b) => {
+    const version = (id: string) => Number(id.match(/^gemini-(\d+)\.(\d+)/i)?.[1] ?? 0) * 100 + Number(id.match(/^gemini-(\d+)\.(\d+)/i)?.[2] ?? 0);
+    return version(b) - version(a) || variantRank(a) - variantRank(b) || a.localeCompare(b);
+  });
+  const models = unique.length ? unique : [env.GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter((v, i, arr) => arr.indexOf(v) === i);
+  modelCache = { models, expiresAt: Date.now() + 10 * 60 * 1000 };
+  logger.info({ feature: "ai-model-discovery", modelCount: models.length, models }, "Gemini fallback model catalog ready");
+  return models;
+}
+
+function buildSystemInstruction(memories: string[], customSystemPrompt?: string): string {
+  const memoryContext = memories.length
+    ? "\n\nMemórias salvas explicitamente pelo usuário (use apenas quando relevantes):\n" + memories.map((item) => "- " + item).join("\n")
+    : "";
+  const personaContext = customSystemPrompt?.trim()
+    ? "\n\nPersonalidade adicional configurada pelos administradores do servidor:\n" + customSystemPrompt.trim()
+    : "";
+  return DEFAULT_SYSTEM_INSTRUCTION + personaContext + memoryContext;
+}
+
+function buildGeminiContents(history: ChatTurn[], prompt: string) {
+  return [
+    ...history.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
+    { role: "user" as const, parts: [{ text: prompt }] },
+  ];
+}
+
+async function streamGemini(
+  model: string,
+  history: ChatTurn[],
+  prompt: string,
+  systemInstruction: string,
+  tools: Tool[],
+  onChunk?: TextChunkHandler,
+): Promise<{ answer: string; firstChunkMs?: number; chunkCount: number }> {
+  const startedAt = performance.now();
+  let firstChunkMs: number | undefined;
+  let chunkCount = 0;
+  let answer = "";
+  const stream = await gemini.models.generateContentStream({
+    model,
+    contents: buildGeminiContents(history, prompt),
+    config: {
+      systemInstruction,
+      temperature: 0.7,
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+      ...(tools.length ? { tools } : {}),
+    },
+  });
+  for await (const part of stream) {
+    const text = part.text ?? "";
+    if (!text) continue;
+    if (firstChunkMs === undefined) firstChunkMs = Math.round(performance.now() - startedAt);
+    chunkCount++;
+    answer += text;
+    await onChunk?.(text);
+  }
+  answer = answer.trim();
+  if (!answer) throw new Error("Gemini returned an empty streaming response");
+  return { answer, firstChunkMs, chunkCount };
+}
+
+async function streamOpenRouter(
+  history: ChatTurn[],
+  prompt: string,
+  systemInstruction: string,
+  onChunk?: TextChunkHandler,
+): Promise<{ answer: string; firstChunkMs?: number; chunkCount: number; actualModel?: string }> {
+  if (!env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
+  const startedAt = performance.now();
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + env.OPENROUTER_API_KEY,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://llm-2n2e.onrender.com",
+      "X-Title": "Discord LLM Assistant",
+    },
+    body: JSON.stringify({
+      model: env.OPENROUTER_MODEL,
+      stream: true,
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: systemInstruction },
+        ...history.map((turn) => ({ role: turn.role === "model" ? "assistant" : "user", content: turn.text })),
+        { role: "user", content: prompt },
+      ],
+    }),
+    signal: AbortSignal.timeout(120000),
+  });
+  if (!response.ok) {
+    const errorText = (await response.text()).slice(0, 1200);
+    throw new Error("OpenRouter returned HTTP " + response.status + ": " + errorText);
+  }
+  if (!response.body) throw new Error("OpenRouter returned no streaming response body");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let answer = "";
+  let firstChunkMs: number | undefined;
+  let chunkCount = 0;
+  let actualModel: string | undefined;
+  const processLine = async (line: string) => {
+    if (!line.startsWith("data:")) return;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") return;
+    const event = JSON.parse(data) as {
+      model?: string;
+      choices?: Array<{ delta?: { content?: string | Array<{ type?: string; text?: string }> }; message?: { content?: string } }>;
+    };
+    if (event.model) actualModel = event.model;
+    const delta = event.choices?.[0]?.delta?.content;
+    const text = typeof delta === "string"
+      ? delta
+      : Array.isArray(delta) ? delta.map((part) => part.text ?? "").join("") : event.choices?.[0]?.message?.content ?? "";
+    if (!text) return;
+    if (firstChunkMs === undefined) firstChunkMs = Math.round(performance.now() - startedAt);
+    chunkCount++;
+    answer += text;
+    await onChunk?.(text);
+  };
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      for (const line of lines) await processLine(line);
+      if (done) break;
+    }
+    if (buffer.trim()) await processLine(buffer.trim());
+  } finally {
+    reader.releaseLock();
+  }
+  answer = answer.trim();
+  if (!answer) throw new Error("OpenRouter returned an empty streaming response");
+  return { answer, firstChunkMs, chunkCount, actualModel };
+}
+
 export async function generateAnswer(
   history: ChatTurn[],
   prompt: string,
@@ -30,50 +210,56 @@ export async function generateAnswer(
   customSystemPrompt?: string,
   onChunk?: TextChunkHandler,
 ): Promise<string> {
-  const memoryContext = memories.length
-    ? "\n\nMemórias salvas explicitamente pelo usuário (use apenas quando relevantes):\n" + memories.map((item) => "- " + item).join("\n")
-    : "";
-  const personaContext = customSystemPrompt?.trim()
-    ? "\n\nPersonalidade adicional configurada pelos administradores do servidor:\n" + customSystemPrompt.trim()
-    : "";
-  const contents = [
-    ...history.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
-    { role: "user" as const, parts: [{ text: prompt }] },
-  ];
+  const requestStartedAt = performance.now();
+  const systemInstruction = buildSystemInstruction(memories, customSystemPrompt);
   const selectedTools = selectTools(prompt);
-  const startedAt = performance.now();
-  let firstChunkMs: number | undefined;
-  let chunkCount = 0;
-  let answer = "";
-  logger.info({ feature: "gemini", operation: "generateContentStream", model: GEMINI_MODEL, historyTurns: history.length, memoryCount: memories.length, promptChars: prompt.length, enabledTools: selectedTools.map((tool) => Object.keys(tool)[0]), streaming: true }, "Gemini streaming request started");
-  try {
-    const stream = await gemini.models.generateContentStream({
-      model: GEMINI_MODEL,
-      contents,
-      config: {
-        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION + personaContext + memoryContext,
-        temperature: 0.7,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        ...(selectedTools.length ? { tools: selectedTools } : {}),
-      },
-    });
-    for await (const part of stream) {
-      const text = part.text ?? "";
-      if (!text) continue;
-      if (firstChunkMs === undefined) {
-        firstChunkMs = Math.round(performance.now() - startedAt);
-        logger.info({ feature: "gemini", operation: "generateContentStream", model: GEMINI_MODEL, timeToFirstChunkMs: firstChunkMs }, "Gemini first text chunk received");
-      }
-      chunkCount++;
-      answer += text;
-      await onChunk?.(text);
+  const saved = await getActiveAIModel();
+  const geminiModels = await discoverGeminiModels();
+  const geminiOrder = saved?.provider === "gemini" && geminiModels.includes(saved.model)
+    ? [saved.model, ...geminiModels.filter((model) => model !== saved.model)]
+    : geminiModels;
+  const openRouterFirst = saved?.provider === "openrouter";
+  const attempts: Array<{ provider: "gemini" | "openrouter"; model: string }> = [];
+  if (openRouterFirst) attempts.push({ provider: "openrouter", model: env.OPENROUTER_MODEL });
+  for (const model of geminiOrder) attempts.push({ provider: "gemini", model });
+  if (!openRouterFirst && env.OPENROUTER_API_KEY) attempts.push({ provider: "openrouter", model: env.OPENROUTER_MODEL });
+  if (openRouterFirst && !geminiOrder.length) attempts.push({ provider: "openrouter", model: env.OPENROUTER_MODEL });
+
+  const tried = new Set<string>();
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    const key = attempt.provider + ":" + attempt.model;
+    if (tried.has(key)) continue;
+    tried.add(key);
+    const attemptStartedAt = performance.now();
+    let emittedText = false;
+    const guardedChunk: TextChunkHandler | undefined = onChunk
+      ? async (chunk) => { emittedText = true; await onChunk(chunk); }
+      : undefined;
+    logger.info({ feature: "ai-fallback", provider: attempt.provider, model: attempt.model, attempt: tried.size, enabledTools: attempt.provider === "gemini" ? selectedTools.map((tool) => Object.keys(tool)[0]) : [] }, "AI provider attempt started");
+    try {
+      const result = attempt.provider === "gemini"
+        ? await streamGemini(attempt.model, history, prompt, systemInstruction, selectedTools, guardedChunk)
+        : await streamOpenRouter(history, prompt, systemInstruction, guardedChunk);
+      await setActiveAIModel({ provider: attempt.provider, model: attempt.model });
+      logger.info({
+        feature: "ai-fallback",
+        provider: attempt.provider,
+        model: result.actualModel ?? attempt.model,
+        durationMs: Math.round(performance.now() - attemptStartedAt),
+        totalDurationMs: Math.round(performance.now() - requestStartedAt),
+        timeToFirstChunkMs: result.firstChunkMs,
+        chunkCount: result.chunkCount,
+        responseChars: result.answer.length,
+      }, "AI provider request completed");
+      return result.answer;
+    } catch (error) {
+      lastError = error;
+      logger.warn({ err: error, feature: "ai-fallback", provider: attempt.provider, model: attempt.model, durationMs: Math.round(performance.now() - attemptStartedAt), emittedText }, "AI provider failed; checking next fallback");
+      // If output already reached Discord, changing providers would duplicate or corrupt the answer.
+      if (emittedText) throw error;
     }
-    answer = answer.trim();
-    if (!answer) throw new Error("Gemini returned an empty streaming response");
-    logger.info({ feature: "gemini", operation: "generateContentStream", model: GEMINI_MODEL, durationMs: Math.round(performance.now() - startedAt), timeToFirstChunkMs: firstChunkMs, chunkCount, responseChars: answer.length }, "Gemini streaming request completed");
-    return answer;
-  } catch (error) {
-    logger.error({ err: error, feature: "gemini", operation: "generateContentStream", model: GEMINI_MODEL, durationMs: Math.round(performance.now() - startedAt), timeToFirstChunkMs: firstChunkMs, chunkCount, historyTurns: history.length, memoryCount: memories.length, promptChars: prompt.length }, "Gemini streaming request failed");
-    throw error;
   }
+  logger.error({ err: lastError, feature: "ai-fallback", attempted: [...tried], openRouterConfigured: Boolean(env.OPENROUTER_API_KEY) }, "All AI providers failed");
+  throw new Error("Todos os modelos disponíveis falharam ou atingiram o limite de uso. Verifique as cotas do Gemini e a configuração OPENROUTER_API_KEY.");
 }
