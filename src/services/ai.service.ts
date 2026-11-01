@@ -39,13 +39,12 @@ const DEFAULT_SYSTEM_INSTRUCTION = [
 ].join("\n");
 
 function selectTools(_prompt: string): Tool[] {
-  // Availability does not force use: Gemini decides per turn whether either
-  // built-in tool is useful. Do not route calls from superficial keywords.
-  return [{ googleSearch: {} }, { codeExecution: {} }];
+  // Built-in tools are temporarily disabled until model-directed function-call
+  // execution is wired end-to-end. Never force tools on ordinary turns.
+  return [];
 }
 
-function isPrecisionTask(prompt: string, tools: Tool[]): boolean {
-  if (tools.length > 0) return true;
+function isPrecisionTask(prompt: string, _tools: Tool[]): boolean {
   return /\b(analis[ae]|auditoria|auditar|compar[ae]|calcule|calcular|cálculo|contrato|cláusula|jurídic[oa]|lei|processo|petição|parecer|diagnóstico|debug|depurar|implementar|programar|código|script|arquitetura|projeto|planejamento|estratégia|relatório|documento|planilha|modelo financeiro|valuation|due diligence|passo a passo|detalhadamente|com rigor|tecnicamente|revisar|corrigir|investigar|pesquisa aprofundada)\b/i.test(prompt)
     || prompt.length > 1200;
 }
