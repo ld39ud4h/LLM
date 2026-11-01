@@ -35,7 +35,10 @@ export async function replyToUser(
 
   const provisionalChunks: string[] = [];
   const provisionalPromise = !greeting
-    ? generateAnswer([], input.prompt, [], undefined, undefined, async (chunk) => { provisionalChunks.push(chunk); })
+    ? generateAnswer([], input.prompt, [], undefined, undefined, async (chunk) => { provisionalChunks.push(chunk); }).catch((error) => {
+        logger.warn({ err: error, feature: "chat-pipeline", phase: "provisional-generation" }, "Provisional response failed; context-aware generation will handle the request");
+        return undefined;
+      })
     : Promise.resolve(undefined);
   const dbStartedAt = performance.now();
 
