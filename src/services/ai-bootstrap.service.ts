@@ -22,7 +22,7 @@ async function listGeminiModels(): Promise<string[]> {
   const version = (id: string) => { const m = id.match(/^gemini-(\d+)\.(\d+)/i); return m ? [Number(m[1]), Number(m[2])] : [0,0]; };
   const rank = (id: string) => /flash-lite/i.test(id) ? 1 : /flash/i.test(id) ? 0 : /pro/i.test(id) ? 2 : 3;
   return [...new Set([env.GEMINI_MODEL, ...ids].filter(Boolean))].sort((a,b) => {
-    const av=version(a), bv=version(b); return bv[0]-av[0] || bv[1]-av[1] || rank(a)-rank(b);
+    const av=version(a), bv=version(b); return (bv[0] ?? 0)-(av[0] ?? 0) || (bv[1] ?? 0)-(av[1] ?? 0) || rank(a)-rank(b);
   }).slice(0,3);
 }
 
@@ -54,7 +54,7 @@ async function probeGemini(model: string): Promise<boolean> {
     });
     if(!response.ok) return false;
     const payload=await response.json() as any;
-    return Boolean(payload.candidates?.[0]?.content?.parts?.some((part)=>part.text?.trim()));
+    return Boolean(payload.candidates?.[0]?.content?.parts?.some((part: { text?: string })=>part.text?.trim()));
   } catch { return false; }
 }
 
