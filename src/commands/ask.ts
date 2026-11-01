@@ -29,12 +29,12 @@ export const askCommand = {
       const firstChunk = answer.slice(0, 1900) || "Não consegui gerar uma resposta.";
       await interaction.editReply(firstChunk);
       const remainder = answer.slice(1900);
-      const chunks = remainder.match(/[\\s\\S]{1,1900}/g) ?? [];
+      const chunks = remainder.match(/[\s\S]{1,1900}/g) ?? [];
       for (const chunk of chunks) await interaction.followUp({ content: chunk });
     } catch (error) {
       logger.error({ err: error, userId: interaction.user.id, streamedChars: streamedText.length }, "Failed to handle /ask");
       const errorText = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
-      await interaction.editReply(streamedText ? streamedText.slice(0, 1800) + "\\n\\n" + errorText : errorText);
+      await interaction.editReply(streamedText ? streamedText.slice(0, 1800) + "\n\n" + errorText : errorText);
     }
   },
 };
