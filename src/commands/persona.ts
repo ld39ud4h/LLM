@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import { logger } from "../config/logger.js";
-import { resetUserPersona, setUserPersona } from "../services/user-persona.service.js";
+import { DEFAULT_USER_PERSONA, getUserPersona, resetUserPersona, setUserPersona } from "../services/user-persona.service.js";
 
 export const personaCommand = {
   data: new SlashCommandBuilder()
@@ -18,6 +18,9 @@ export const personaCommand = {
         ),
     )
     .addSubcommand((subcommand) =>
+      subcommand.setName("ver").setDescription("Veja sua personalidade atual"),
+    )
+    .addSubcommand((subcommand) =>
       subcommand.setName("resetar").setDescription("Volte à personalidade padrão do consultor"),
     ),
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -32,6 +35,13 @@ export const personaCommand = {
         }
         await setUserPersona(interaction.user.id, persona);
         await interaction.editReply("Fechado! Sua personalidade foi salva. A partir de agora, vou conversar com você desse jeito. 😎");
+        return;
+      }
+      if (subcommand === "ver") {
+        const persona = await getUserPersona(interaction.user.id);
+        await interaction.editReply(persona
+          ? "Sua personalidade atual:\n" + persona
+          : "Você está usando minha personalidade padrão:\n" + DEFAULT_USER_PERSONA);
         return;
       }
       await resetUserPersona(interaction.user.id);
