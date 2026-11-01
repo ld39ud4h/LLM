@@ -77,7 +77,7 @@ export async function initializeLocalCache():Promise<void>{
   mkdirSync(dirname(cachePath),{recursive:true});
   database=new DatabaseSync(cachePath);
   database.exec("pragma journal_mode=WAL; pragma synchronous=NORMAL; pragma busy_timeout=5000; create table if not exists cache_records(collection text not null,record_key text not null,payload text not null,updated_at text not null,primary key(collection,record_key)); create index if not exists idx_cache_collection on cache_records(collection);");
-  const collections:Array<[string,string,number?]>=[["discord_users","discord_id"],["conversations","id"],["messages","id",5000],["user_memories","id"],["guild_settings","guild_id"],["user_personas","discord_user_id"]];
+  const collections:Array<[string,string,number?]>=[["discord_users","discord_id"],["conversations","id"],["messages","id",5000],["user_memories","id"],["guild_settings","guild_id"],["user_personas","discord_user_id"],["ai_runtime_state","state_key"]];
   const results=await Promise.allSettled(collections.map(([table,key,limit])=>hydrateCollection(table,key,limit)));
   let total=0;
   results.forEach((result,index)=>{if(result.status==="fulfilled") total+=result.value; else logger.warn({err:result.reason,feature:"sqlite-cache",collection:collections[index]?.[0]},"Could not hydrate local cache collection");});
