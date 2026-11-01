@@ -16,10 +16,10 @@ type ContentBlock =
 
 function isSimpleAnswer(text: string): boolean {
   const trimmed = text.trim();
-  const structured = /^\\s{0,3}(#{1,6}\\s|[-*+]\\s|\\d+[.)]\\s|>\\s|\\|)/m.test(trimmed)
-    || /\\n\\s*```/.test(trimmed)
-    || /\\n\\s*\\n/.test(trimmed)
-    || /^\\s{0,3}(?:-{3,}|_{3,}|\\*{3,})\\s*$/m.test(trimmed);
+  const structured = /^\s{0,3}(#{1,6}\s|[-*+]\s|\d+[.)]\s|>\s|\|)/m.test(trimmed)
+    || /\n\s*```/.test(trimmed)
+    || /\n\s*\n/.test(trimmed)
+    || /^\s{0,3}(?:-{3,}|_{3,}|\*{3,})\s*$/m.test(trimmed);
   return trimmed.length <= 260 && !structured;
 }
 
@@ -27,7 +27,7 @@ function splitAnswer(text: string, limit: number): string[] {
   const result: string[] = [];
   let remaining = text.trim();
   while (remaining.length > limit) {
-    let cut = remaining.lastIndexOf("\\n", limit);
+    let cut = remaining.lastIndexOf("\n", limit);
     if (cut < limit * 0.55) cut = remaining.lastIndexOf(" ", limit);
     if (cut < limit * 0.55) cut = limit;
     result.push(remaining.slice(0, cut).trim());
@@ -38,12 +38,12 @@ function splitAnswer(text: string, limit: number): string[] {
 }
 
 function splitTableCells(line: string): string[] {
-  return line.trim().replace(/^\\|/, "").replace(/\\|$/, "").split("|").map((cell) => cell.trim());
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
 }
 
 function isTableSeparator(line: string): boolean {
   const cells = splitTableCells(line);
-  return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\\s/g, "")));
+  return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s/g, "")));
 }
 
 /**
@@ -52,12 +52,12 @@ function isTableSeparator(line: string): boolean {
  * because Discord TextDisplay supports it.
  */
 function parseMarkdownBlocks(markdown: string): ContentBlock[] {
-  const lines = markdown.replace(/\\r\\n?/g, "\\n").split("\\n");
+  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const blocks: ContentBlock[] = [];
   let paragraph: string[] = [];
 
   const flushParagraph = () => {
-    const content = paragraph.join("\\n").trim();
+    const content = paragraph.join("\n").trim();
     if (content) {
       for (const part of splitAnswer(content, 3500)) blocks.push({ kind: "text", content: part });
     }
@@ -96,12 +96,12 @@ function parseMarkdownBlocks(markdown: string): ContentBlock[] {
         if (cells.length === 2) {
           blocks.push({
             kind: "text",
-            content: `**${cells[0]!.value}**\\n${cells[1]!.value}`,
+            content: `**${cells[0]!.value}**\n${cells[1]!.value}`,
           });
         } else {
           blocks.push({
             kind: "text",
-            content: cells.map((cell) => `**${cell.header}:** ${cell.value}`).join("\\n"),
+            content: cells.map((cell) => `**${cell.header}:** ${cell.value}`).join("\n"),
           });
         }
         blocks.push({ kind: "separator" });
@@ -112,7 +112,7 @@ function parseMarkdownBlocks(markdown: string): ContentBlock[] {
     }
 
     // Horizontal rules become actual Discord Components V2 separators.
-    if (/^\\s{0,3}(?:-{3,}|_{3,}|\\*{3,})\\s*$/.test(line)) {
+    if (/^\s{0,3}(?:-{3,}|_{3,}|\*{3,})\s*$/.test(line)) {
       flushParagraph();
       blocks.push({ kind: "separator" });
       continue;
@@ -174,7 +174,7 @@ export function buildAnswerMessages(answer: string, userId: string) {
     const rememberedText = blocks
       .filter((block): block is Extract<ContentBlock, { kind: "text" }> => block.kind === "text")
       .map((block) => block.content)
-      .join("\\n");
+      .join("\n");
     const token = registerAnswerForRemember(userId, rememberedText);
     const button = new ButtonBuilder()
       .setCustomId("answer:remember:" + userId + ":" + token)
@@ -197,7 +197,7 @@ export function buildAnswerMessages(answer: string, userId: string) {
         new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
       )
       .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(" -# Consultor · Resposta " + (index + 1) + "/" + pages.length),
+        new TextDisplayBuilder().setContent("-# Consultor · Resposta" + " " + (index + 1) + "/" + pages.length),
       )
       .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(button));
 
