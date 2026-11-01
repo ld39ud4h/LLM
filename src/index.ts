@@ -3,7 +3,9 @@ import { Client, Events, GatewayIntentBits } from "discord.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { commands } from "./commands/index.js";
-import { handlePersonaComponent } from "./commands/persona.js";
+import { handlePersonaComponent, handlePersonaReset } from "./commands/persona.js";
+import { rememberGeneratedAnswer } from "./services/response-memory.service.js";
+import { buildAnswerMessages } from "./services/response-message.service.js";
 import { registerSlashCommands } from "./services/command-registration.service.js";
 import { replyToUser } from "./services/chat.service.js";
 
@@ -33,6 +35,25 @@ client.once(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton() && interaction.customId.startsWith("persona:reset:")) {
+    await handlePersonaReset(interaction);
+    return;
+  }
+  if (interaction.isButton() && interaction.customId.startsWith("answer:remember:")) {
+    const [, , ownerId, token] = interaction.customId.split(":");
+    if (ownerId !== interaction.user.id || !token) {
+      await interaction.reply({ content: "Esse botão pertence a outra pessoa.", ephemeral: true });
+      return;
+    }
+    try {
+      await rememberGeneratedAnswer(interaction.user.id, token);
+      await interaction.update({ content: "🧠 Lembrei disso! Salvei a resposta na sua memória.", components: [], embeds: [] });
+    } catch (error) {
+      logger.error({ err: error, userId: interaction.user.id }, "Could not remember generated answer");
+      await interaction.reply({ content: "Não consegui salvar essa resposta. Talvez o botão tenha expirado.", ephemeral: true });
+    }
+    return;
+  }
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith("persona:select:")) {
     try {
       await handlePersonaComponent(interaction);
@@ -97,33 +118,14 @@ client.on(Events.MessageCreate, async (message) => {
 
     const answer = await replyToUser(
       { discordUserId: message.author.id, username: message.author.username, channelId: message.channelId, guildId: message.guildId, prompt },
-      async (chunk) => {
-        streamedText += chunk;
-        const visibleText = streamedText.slice(0, 1900);
-        if (!liveReply) {
-          liveReply = await message.reply(visibleText);
-          if (typingInterval) {
-            clearInterval(typingInterval);
-            typingInterval = undefined;
-          }
-          lastPublishedLength = visibleText.length;
-          lastEditAt = Date.now();
-          return;
-        }
-        if (visibleText.length - lastPublishedLength >= 120 || Date.now() - lastEditAt >= 900) {
-          await liveReply.edit(visibleText);
-          lastPublishedLength = visibleText.length;
-          lastEditAt = Date.now();
-        }
-      },
     );
-
-    const firstChunk = answer.slice(0, 1900) || "Não consegui gerar uma resposta.";
-    if (liveReply) await liveReply.edit(firstChunk);
-    else liveReply = await message.reply(firstChunk);
-    const remainder = answer.slice(1900);
-    const chunks = remainder.match(/[\s\S]{1,1900}/g) ?? [];
-    for (const chunk of chunks) await message.channel.send(chunk);
+    if (typingInterval) { clearInterval(typingInterval); typingInterval = undefined; }
+    const outgoing = buildAnswerMessages(answer, message.author.id);
+    for (let i = 0; i < outgoing.length; i++) {
+      const payload = outgoing[i]!;
+      if (i === 0) liveReply = await message.reply(payload);
+      else await message.channel.send(payload);
+    }
     logger.info({ feature: "discord-mention", userId: message.author.id, channelId: message.channelId, durationMs: Date.now() - startedAt, responseChars: answer.length, streamed: true }, "Bot mention handled");
   } catch (error) {
     logger.error({ err: error, feature: "discord-mention", userId: message.author.id, guildId: message.guildId, channelId: message.channelId, durationMs: Date.now() - startedAt, promptChars: prompt.length, streamedChars: streamedText.length }, "Failed to handle mention");
