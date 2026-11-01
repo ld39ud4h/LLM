@@ -1,12 +1,22 @@
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
+import { listLocalTools } from "./tools/index.js";
 
 export type ContextToolName =
   | "get_recent_history"
   | "get_yesterday_history"
   | "get_user_memories"
   | "get_guild_settings"
-  | "get_user_persona";
+  | "get_user_persona"
+  | "conversa_casual"
+  | "fuso_horario"
+  | "data_hora"
+  | "conversao_unidades"
+  | "calculadora"
+  | "porcentagem"
+  | "conversao_temperatura"
+  | "diferenca_datas"
+  | "timestamp";
 
 const declarations = [
   { name: "get_recent_history", description: "Recupera as mensagens recentes da conversa atual. Use somente quando a pergunta depender de algo dito anteriormente.", parameters: { type: "OBJECT", properties: {} } },
@@ -16,7 +26,9 @@ const declarations = [
   { name: "get_user_persona", description: "Recupera a personalidade e estilo configurados pela pessoa, somente se forem relevantes.", parameters: { type: "OBJECT", properties: {} } },
 ] as const;
 
-const allowed = new Set<string>(declarations.map((item) => item.name));
+const localDeclarations = listLocalTools().filter((tool) => tool.name !== "conversa_casual").map((tool) => ({ name: tool.name, description: tool.description, parameters: { type: "OBJECT", properties: {} } }));
+const allDeclarations = [...declarations, ...localDeclarations];
+const allowed = new Set<string>(allDeclarations.map((item) => item.name));
 
 function parseGeminiCalls(payload: any): ContextToolName[] {
   const parts = payload?.candidates?.[0]?.content?.parts ?? [];
@@ -51,10 +63,10 @@ async function planWithGemini(prompt: string): Promise<ContextToolName[]> {
         "Se a pessoa disser ontem, escolha apenas get_yesterday_history, nunca get_recent_history.",
         "Referência a conversas anteriores usa get_recent_history. Memória pessoal salva usa get_user_memories.",
         "Configurações/persona somente quando relevantes. Chamadas independentes podem ser selecionadas juntas.",
-        "Use o menor conjunto de ferramentas. Não invente ferramentas ou argumentos."
+        "Ferramentas locais podem calcular, converter unidades/temperaturas, obter data e hora e calcular diferenças de datas. Escolha-as somente quando a operação for pedida e os dados forem suficientes. Use o menor conjunto de ferramentas. Não invente ferramentas ou argumentos."
       ].join("\n") }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      tools: [{ functionDeclarations: declarations }],
+      tools: [{ functionDeclarations: allDeclarations }],
       toolConfig: { functionCallingConfig: { mode: "AUTO" } },
       generationConfig: { temperature: 0 },
     }),
@@ -74,7 +86,7 @@ async function planWithOpenRouter(prompt: string): Promise<ContextToolName[]> {
       temperature: 0,
       tool_choice: "auto",
       parallel_tool_calls: true,
-      tools: declarations.map((item) => ({
+      tools: allDeclarations.map((item) => ({
         type: "function",
         function: {
           name: item.name,
@@ -83,7 +95,7 @@ async function planWithOpenRouter(prompt: string): Promise<ContextToolName[]> {
         },
       })),
       messages: [
-        { role: "system", content: "Selecione zero ou mais ferramentas de contexto somente se necessárias. 'ontem' exige get_yesterday_history e não get_recent_history. Conversas anteriores: get_recent_history. Memória pessoal salva: get_user_memories. Configurações/persona somente quando relevantes. Chamadas independentes podem ser paralelas. Não invente dados." },
+        { role: "system", content: "Selecione zero ou mais ferramentas de contexto somente se necessárias. 'ontem' exige get_yesterday_history e não get_recent_history. Conversas anteriores: get_recent_history. Memória pessoal salva: get_user_memories. Configurações/persona somente quando relevantes. Chamadas independentes podem ser paralelas. Use ferramentas locais para cálculos/conversões/datas quando necessário. Não invente dados." },
         { role: "user", content: prompt },
       ],
     }),

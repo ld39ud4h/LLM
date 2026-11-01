@@ -221,3 +221,15 @@ export function runLocalTool(prompt: string): ToolResult {
 export function listLocalTools(): Array<Pick<LocalTool, "name" | "description">> {
   return tools.map(({ name, description }) => ({ name, description }));
 }
+
+
+export function runLocalToolByName(name: string, prompt: string): ToolResult {
+  const normalized = prompt.toLocaleLowerCase("pt-BR").trim();
+  const tool = tools.find((candidate) => candidate.name === name);
+  if (!tool || !tool.match(normalized)) return { handled: false };
+  try {
+    return { handled: true, name: tool.name, response: tool.run(normalized) };
+  } catch {
+    return { handled: true, name: tool.name, response: "Não consegui interpretar essa operação. Confira os valores e tente novamente." };
+  }
+}

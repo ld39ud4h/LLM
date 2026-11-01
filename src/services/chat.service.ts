@@ -5,7 +5,7 @@ import { getGuildSystemPrompt } from "./guild-settings.service.js";
 import { getHistory, getHistoryForDate, getOrCreateConversation, saveMessage } from "./conversation.service.js";
 import { listMemories } from "./memory.service.js";
 import { getUserPersona } from "./user-persona.service.js";
-import { runLocalTool } from "./tools/index.js";
+import { runLocalToolByName } from "./tools/index.js";
 import { planContextTools, type ContextToolName } from "./context-planner.service.js";
 
 function isGreeting(prompt: string): boolean {
@@ -18,13 +18,6 @@ export async function replyToUser(
   onChunk?: TextChunkHandler,
 ): Promise<string> {
   const requestStartedAt = performance.now();
-  const toolResult = runLocalTool(input.prompt);
-  if (toolResult.handled) {
-    logger.info({ feature: "local-tool", tool: toolResult.name, userId: input.discordUserId, durationMs: Math.round(performance.now() - requestStartedAt) }, "Local tool executed");
-    await onChunk?.(toolResult.response);
-    return toolResult.response;
-  }
-
   const greeting = isGreeting(input.prompt);
   let conversationId: string | undefined;
   let history: Awaited<ReturnType<typeof getHistory>> = [];
@@ -33,6 +26,7 @@ export async function replyToUser(
   let userPersona: string | undefined;
   let selectedTools: ContextToolName[] = [];
   let contextResultNote = "";
+  const localToolResults: string[] = [];
   let answer = "";
 
   const provisionalChunks: string[] = [];
@@ -57,11 +51,18 @@ export async function replyToUser(
     if (uniqueTools.includes("get_user_memories")) tasks.push(listMemories(input.discordUserId).then((value) => { memories = value; }));
     if (uniqueTools.includes("get_guild_settings")) tasks.push(getGuildSystemPrompt(input.guildId).then((value) => { systemPrompt = value; }));
     if (uniqueTools.includes("get_user_persona")) tasks.push(getUserPersona(input.discordUserId).then((value) => { userPersona = value; }));
+    const contextToolNames = new Set(["get_recent_history", "get_yesterday_history", "get_user_memories", "get_guild_settings", "get_user_persona"]);
+    const localToolNames = uniqueTools.filter((name) => !contextToolNames.has(name));
+    for (const name of localToolNames) tasks.push(Promise.resolve(runLocalToolByName(name, input.prompt)).then((result) => {
+      if (result.handled) localToolResults.push(result.response);
+    }));
     await Promise.all(tasks);
     const notes: string[] = [];
     if (uniqueTools.includes("get_yesterday_history") && history.length === 0) notes.push("A consulta ao histórico de ontem não encontrou mensagens. Não invente o conteúdo de uma conversa; informe que não há registros desse período.");
     if (uniqueTools.includes("get_recent_history") && history.length === 0) notes.push("A consulta ao histórico recente não encontrou mensagens anteriores nesta conversa. Não invente fatos sobre conversas passadas.");
     if (uniqueTools.includes("get_user_memories") && memories.length === 0) notes.push("A consulta não encontrou memórias salvas para esta pessoa. Não afirme lembrar de fatos pessoais que não estejam disponíveis.");
+    if (localToolResults.length) notes.push("Resultados confirmados das ferramentas locais:\\n" + localToolResults.map((result) => "- " + result).join("\\n"));
+    if (uniqueTools.some((name) => !contextToolNames.has(name)) && localToolResults.length === 0) notes.push("A ferramenta local selecionada não conseguiu validar os dados desta solicitação. Não invente um resultado; peça os dados que faltam.");
     contextResultNote = notes.join("\n");
     logger.info({
       feature: "chat-pipeline",
