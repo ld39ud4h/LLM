@@ -63,7 +63,7 @@ export function buildAnswerMessages(answer: string, userId: string) {
 
     return {
       components: [container],
-      flags: MessageFlags.IsComponentsV2,
+      flags: MessageFlags.IsComponentsV2 as const,
       allowedMentions: { parse: [] as const },
     };
   });
