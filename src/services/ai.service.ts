@@ -214,29 +214,25 @@ export async function generateAnswer(
   const systemInstruction = buildSystemInstruction(memories, customSystemPrompt);
   const selectedTools = selectTools(prompt);
   const saved = await getActiveAIModel();
-  const geminiModels = await discoverGeminiModels();
-  const geminiOrder = saved?.provider === "gemini" && geminiModels.includes(saved.model)
-    ? [saved.model, ...geminiModels.filter((model) => model !== saved.model)]
-    : geminiModels;
-  const openRouterFirst = saved?.provider === "openrouter";
-  const attempts: Array<{ provider: "gemini" | "openrouter"; model: string }> = [];
-  if (openRouterFirst) attempts.push({ provider: "openrouter", model: env.OPENROUTER_MODEL });
-  for (const model of geminiOrder) attempts.push({ provider: "gemini", model });
-  if (!openRouterFirst && env.OPENROUTER_API_KEY) attempts.push({ provider: "openrouter", model: env.OPENROUTER_MODEL });
-  if (openRouterFirst && !geminiOrder.length) attempts.push({ provider: "openrouter", model: env.OPENROUTER_MODEL });
-
   const tried = new Set<string>();
   let lastError: unknown;
-  for (const attempt of attempts) {
+
+  const attemptProvider = async (attempt: ActiveAIModel): Promise<string | undefined> => {
     const key = attempt.provider + ":" + attempt.model;
-    if (tried.has(key)) continue;
+    if (tried.has(key)) return undefined;
     tried.add(key);
     const attemptStartedAt = performance.now();
     let emittedText = false;
     const guardedChunk: TextChunkHandler | undefined = onChunk
       ? async (chunk) => { emittedText = true; await onChunk(chunk); }
       : undefined;
-    logger.info({ feature: "ai-fallback", provider: attempt.provider, model: attempt.model, attempt: tried.size, enabledTools: attempt.provider === "gemini" ? selectedTools.map((tool) => Object.keys(tool)[0]) : [] }, "AI provider attempt started");
+    logger.info({
+      feature: "ai-fallback",
+      provider: attempt.provider,
+      model: attempt.model,
+      attempt: tried.size,
+      enabledTools: attempt.provider === "gemini" ? selectedTools.map((tool) => Object.keys(tool)[0]) : [],
+    }, "AI provider attempt started");
     try {
       const result = attempt.provider === "gemini"
         ? await streamGemini(attempt.model, history, prompt, systemInstruction, selectedTools, guardedChunk)
@@ -255,11 +251,45 @@ export async function generateAnswer(
       return result.answer;
     } catch (error) {
       lastError = error;
-      logger.warn({ err: error, feature: "ai-fallback", provider: attempt.provider, model: attempt.model, durationMs: Math.round(performance.now() - attemptStartedAt), emittedText }, "AI provider failed; checking next fallback");
+      logger.warn({
+        err: error,
+        feature: "ai-fallback",
+        provider: attempt.provider,
+        model: attempt.model,
+        durationMs: Math.round(performance.now() - attemptStartedAt),
+        emittedText,
+      }, "AI provider failed; checking next fallback");
       // If output already reached Discord, changing providers would duplicate or corrupt the answer.
       if (emittedText) throw error;
+      return undefined;
     }
+  };
+
+  // If OpenRouter was the last known healthy provider, try it immediately before model discovery.
+  if (saved?.provider === "openrouter") {
+    const answer = await attemptProvider({ provider: "openrouter", model: env.OPENROUTER_MODEL });
+    if (answer) return answer;
   }
-  logger.error({ err: lastError, feature: "ai-fallback", attempted: [...tried], openRouterConfigured: Boolean(env.OPENROUTER_API_KEY) }, "All AI providers failed");
+
+  const discoveredModels = await discoverGeminiModels();
+  const geminiOrder = saved?.provider === "gemini" && discoveredModels.includes(saved.model)
+    ? [saved.model, ...discoveredModels.filter((model) => model !== saved.model)]
+    : discoveredModels;
+  for (const model of geminiOrder) {
+    const answer = await attemptProvider({ provider: "gemini", model });
+    if (answer) return answer;
+  }
+
+  if (env.OPENROUTER_API_KEY && saved?.provider !== "openrouter") {
+    const answer = await attemptProvider({ provider: "openrouter", model: env.OPENROUTER_MODEL });
+    if (answer) return answer;
+  }
+
+  logger.error({
+    err: lastError,
+    feature: "ai-fallback",
+    attempted: [...tried],
+    openRouterConfigured: Boolean(env.OPENROUTER_API_KEY),
+  }, "All AI providers failed");
   throw new Error("Todos os modelos disponíveis falharam ou atingiram o limite de uso. Verifique as cotas do Gemini e a configuração OPENROUTER_API_KEY.");
 }
