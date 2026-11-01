@@ -7,9 +7,10 @@ type CacheRow = Record<string, unknown>;
 const cachePath = process.env.CACHE_DB_PATH || "/tmp/discord-llm-cache.sqlite";
 let database: DatabaseSync | undefined;
 const hydrated = new Set<string>();
+const dirty = new Set<string>();
 function db(): DatabaseSync { if (!database) throw new Error("SQLite cache is not initialized"); return database; }
 export function cacheGet<T extends CacheRow>(collection: string, key: string): T | undefined {
-  if (!database) return undefined;
+  if (!database || (!hydrated.has(collection) && !dirty.has(collection))) return undefined;
   const row = db().prepare("select payload from cache_records where collection=? and record_key=?").get(collection,key) as {payload?:string}|undefined;
   if (!row?.payload) return undefined;
   try { return JSON.parse(row.payload) as T; } catch { return undefined; }
@@ -23,10 +24,12 @@ export function isCacheHydrated(collection:string):boolean { return Boolean(data
 export function cacheSet(collection:string,key:string,value:CacheRow):void {
   if (!database) return;
   db().prepare("insert into cache_records(collection,record_key,payload,updated_at) values(?,?,?,?) on conflict(collection,record_key) do update set payload=excluded.payload,updated_at=excluded.updated_at").run(collection,key,JSON.stringify(value),new Date().toISOString());
+  dirty.add(collection);
 }
 export function cacheDelete(collection:string,key:string):void {
   if (!database) return;
   db().prepare("delete from cache_records where collection=? and record_key=?").run(collection,key);
+  dirty.add(collection);
 }
 function cacheReplaceCollection(collection:string,rows:Array<{key:string;value:CacheRow}>):void {
   if (!database) return;
@@ -37,7 +40,7 @@ function cacheReplaceCollection(collection:string,rows:Array<{key:string;value:C
     connection.prepare("delete from cache_records where collection=?").run(collection);
     const now=new Date().toISOString();
     for(const row of rows) insert.run(collection,row.key,JSON.stringify(row.value),now);
-    connection.exec("commit"); hydrated.add(collection);
+    connection.exec("commit"); hydrated.add(collection); dirty.delete(collection);
   } catch(error) { connection.exec("rollback"); throw error; }
 }
 async function hydrateCollection(table:string,keyColumn:string,maxRows=Number.POSITIVE_INFINITY):Promise<number>{
