@@ -75,8 +75,8 @@ async function discoverGeminiModels(): Promise<string[]> {
     byVersion.set(version, [...(byVersion.get(version) ?? []), id]);
   }
   const versions = [...byVersion.keys()].sort((a, b) => {
-    const [aMajor, aMinor] = a.split(".").map(Number);
-    const [bMajor, bMinor] = b.split(".").map(Number);
+    const [aMajor = 0, aMinor = 0] = a.split(".").map(Number);
+    const [bMajor = 0, bMinor = 0] = b.split(".").map(Number);
     return bMajor - aMajor || bMinor - aMinor;
   });
   // Keep only the two highest distinct model versions actually advertised by the API.
@@ -125,7 +125,7 @@ async function streamGemini(
   systemInstruction: string,
   tools: Tool[],
   onChunk?: TextChunkHandler,
-): Promise<{ answer: string; firstChunkMs?: number; chunkCount: number }> {
+): Promise<{ answer: string; firstChunkMs: number | undefined; chunkCount: number; actualModel?: string | undefined }> {
   const startedAt = performance.now();
   let firstChunkMs: number | undefined;
   let chunkCount = 0;
@@ -158,7 +158,7 @@ async function streamOpenRouter(
   prompt: string,
   systemInstruction: string,
   onChunk?: TextChunkHandler,
-): Promise<{ answer: string; firstChunkMs?: number; chunkCount: number; actualModel?: string }> {
+): Promise<{ answer: string; firstChunkMs: number | undefined; chunkCount: number; actualModel?: string | undefined }> {
   if (!env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
   const startedAt = performance.now();
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
