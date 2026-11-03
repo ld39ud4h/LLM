@@ -8,7 +8,7 @@ import { logger } from "../config/logger.js";
 const ACCENT = 0x06b6d4;
 const PANEL_IDS = {
   suggestions: "lanstec:panel:suggestions",
-  support: "lanstec:panel:support",
+  support: "lanstec:panel:support",\n  tickets: "lanstec:panel:tickets",\n  rules: "lanstec:panel:rules",\n  docs: "lanstec:panel:docs",
 };
 
 function hasCustomId(message: Message, customId: string): boolean {
