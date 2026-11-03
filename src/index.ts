@@ -12,7 +12,7 @@ import { registerSlashCommands } from "./services/command-registration.service.j
 import { replyToUser } from "./services/chat.service.js";
 import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
 import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bootstrap.service.js";
-import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest } from "./services/guild-panels.service.js";
+import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest } from "./services/guild-panels.service.js";\nimport { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
 
 const healthServer = createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/api/helth") {
@@ -53,7 +53,7 @@ const commandMap = new Map(commands.map((command) => [command.data.name, command
 
 client.once(Events.ClientReady, async (readyClient) => {
   logger.info({ feature: "discord", botTag: readyClient.user.tag, botUserId: readyClient.user.id }, "Discord bot is online");
-  void sendDiscordWebhook("Bot online", `LANSTEC bot conectado como **${readyClient.user.tag}**.`, { color: 0x2ecc71 });
+  await initializeGuildPanels(readyClient);\n  await broadcastStartup(readyClient);
   try {
     await registerSlashCommands();
   } catch (error) {
@@ -61,7 +61,7 @@ client.once(Events.ClientReady, async (readyClient) => {
   }
 });
 
-client.on(Events.InteractionCreate, async (interaction) => {
+client.on(Events.GuildMemberAdd, async (member) => {\n  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }\n});\n\nclient.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId.startsWith("persona:reset:")) {
     await handlePersonaReset(interaction);
     return;
