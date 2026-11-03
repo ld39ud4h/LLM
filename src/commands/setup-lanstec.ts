@@ -9,6 +9,7 @@ import {
   GuildBasedChannel,
   OverwriteResolvable,
 } from "discord.js";
+import { publishGuildPanels } from "../services/guild-panels.service.js";
 
 const roleDefinitions = [
   { name: "Administrador", color: 0x0f766e, permissions: [PermissionFlagsBits.Administrator] },
@@ -208,6 +209,7 @@ export const setupLanstecCommand = {
       }
     }
 
+    await publishGuildPanels(guild);
     await interaction.editReply([
       "✅ **LANSTEC Tecnologia configurada!**",
       `• ${createdCategories} categorias criadas (${reusedCategories} existentes sincronizadas).`,
@@ -216,7 +218,9 @@ export const setupLanstecCommand = {
       "",
       "A configuração é idempotente: executar novamente não duplica categorias ou canais.",
       "⚠️ Atribua os cargos aos membros e revise os acessos antes de compartilhar dados confidenciais.",
-      "Os canais individuais de clientes e tickets automatizados serão adicionados na próxima etapa.",
+      "• Painéis de sugestões e atendimento publicados/sincronizados.",
+      "• Cartão de boas-vindas ativado para novos membros.",
+      "Os tickets individuais com canais privados serão adicionados em uma próxima etapa.",
     ].join("\n"));
   },
 };
