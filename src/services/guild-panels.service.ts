@@ -72,16 +72,16 @@ export async function publishGuildPanels(guild: Guild) {
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • SUPORTE E RELACIONAMENTO • PANEL:support")));
   await upsertPanel(guild, "abrir-ticket", PANEL_IDS.tickets, () =>
     new ContainerBuilder().setAccentColor(0x2563eb)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Central de tickets\\nAbra um atendimento privado com a equipe. Não compartilhe senhas ou tokens.\\n-# PANEL:tickets"))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Central de tickets\nAbra um atendimento privado com a equipe. Não compartilhe senhas ou tokens.\n-# PANEL:tickets"))
       .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("lanstec:ticket:open").setLabel("Abrir ticket privado").setEmoji("🎫").setStyle(ButtonStyle.Primary),
       )));
   await upsertPanel(guild, "regras-e-seguranca", PANEL_IDS.rules, () =>
     new ContainerBuilder().setAccentColor(0xf59e0b)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\\n**1. Respeito:** cordialidade.\\n**2. Privacidade:** não publique dados pessoais, credenciais ou informações de clientes.\\n**3. Segurança:** testes somente com autorização e escopo definido.\\n**4. Conteúdo:** sem spam, golpes ou malware.\\n**5. Organização:** use os canais corretamente.\\n**6. Denúncias:** procure a moderação ou abra ticket.\\n-# PANEL:rules")));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\n**1. Respeito:** cordialidade.\n**2. Privacidade:** não publique dados pessoais, credenciais ou informações de clientes.\n**3. Segurança:** testes somente com autorização e escopo definido.\n**4. Conteúdo:** sem spam, golpes ou malware.\n**5. Organização:** use os canais corretamente.\n**6. Denúncias:** procure a moderação ou abra ticket.\n-# PANEL:rules")));
   await upsertPanel(guild, "documentacao-publica", PANEL_IDS.docs, () =>
     new ContainerBuilder().setAccentColor(0x0891b2)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação pública LANSTEC\\n**Serviços:** consultoria de TI, segurança da informação e conscientização.\\n**Avaliações:** somente com autorização e escopo acordado.\\n**Atendimento:** abra ticket para suporte.\\n**Privacidade:** não compartilhe dados sensíveis em canais públicos.\\n\\nEsta documentação não substitui contratos, propostas ou políticas formais.\\n-# PANEL:docs")));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação pública LANSTEC\n**Serviços:** consultoria de TI, segurança da informação e conscientização.\n**Avaliações:** somente com autorização e escopo acordado.\n**Atendimento:** abra ticket para suporte.\n**Privacidade:** não compartilhe dados sensíveis em canais públicos.\n\nEsta documentação não substitui contratos, propostas ou políticas formais.\n-# PANEL:docs")));
 }
 
 export function buildSuggestionModal() {
@@ -168,9 +168,9 @@ export async function createPrivateTicket(guild: Guild, member: GuildMember, sub
   const safeName = subject.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 25).replace(/^-|-$/g, "") || "atendimento";
   const channel = await guild.channels.create({ name: `ticket-${safeName}-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,5)}`, type: ChannelType.GuildText, parent: category?.id ?? null, permissionOverwrites: overwrites, reason: "Ticket privado LANSTEC" });
   const card = new ContainerBuilder().setAccentColor(0x2563eb)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\\n**Assunto:** " + subject))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\n**Assunto:** " + subject))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\\nA equipe responderá neste canal. Não envie senhas ou tokens."))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\nA equipe responderá neste canal. Não envie senhas ou tokens."))
     .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("lanstec:ticket:claim").setLabel("Assumir").setEmoji("🧑‍💻").setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId("lanstec:ticket:close").setLabel("Encerrar").setEmoji("🔒").setStyle(ButtonStyle.Danger)));
   await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
   return channel;
