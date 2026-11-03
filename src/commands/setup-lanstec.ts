@@ -68,7 +68,7 @@ const groups: Array<{
     channels: [
       { name: "laboratorio" },
       { name: "monitoramento" },
-      { name: "alertas-de-seguranca" },
+      { name: "alertas-de-seguranca", topic: "Alertas de segurança e eventos que exigem triagem." },
       { name: "documentacao-tecnica" },
     ],
   },
