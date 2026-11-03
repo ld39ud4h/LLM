@@ -61,7 +61,29 @@ client.once(Events.ClientReady, async (readyClient) => {
   }
 });
 
-client.on(Events.GuildMemberAdd, async (member) => {\n  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }\n});\n\nclient.on(Events.InteractionCreate, async (interaction) => {
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (interaction.isButton() && interaction.customId === "lanstec:suggestion:open") { await interaction.showModal(buildSuggestionModal()); return; }
+    if (interaction.isButton() && interaction.customId === "lanstec:support:open") { await interaction.showModal(buildSupportModal()); return; }
+    if (interaction.isModalSubmit() && interaction.customId === "lanstec:suggestion:submit") {
+      await publishSuggestion(interaction.guild!, interaction.user.id, interaction.fields.getTextInputValue("title"), interaction.fields.getTextInputValue("description"));
+      await interaction.reply({ content: "Sugestão enviada! Obrigado por contribuir.", ephemeral: true }); return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId === "lanstec:support:submit") {
+      await publishSupportRequest(interaction.guild!, await interaction.guild!.members.fetch(interaction.user.id), interaction.fields.getTextInputValue("subject"), interaction.fields.getTextInputValue("details"));
+      await interaction.reply({ content: "Solicitação encaminhada à equipe.", ephemeral: true }); return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("lanstec:docs:")) {
+      const key = interaction.customId.split(":").pop()!;
+      const info: Record<string,string> = { services: "Consultoria de TI, segurança da informação e conscientização conforme proposta/contrato.", security: "Avaliações somente com autorização expressa, escopo e regras de engajamento acordados.", privacy: "Minimize dados e não compartilhe credenciais ou informações pessoais em canais públicos." };
+      await interaction.reply({ content: info[key] ?? "Consulte a documentação pública.", ephemeral: true }); return;
+    }
+  } catch (error) {
+    logger.error({ err: error, feature: "guild-panels" }, "Panel interaction failed");
+    if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "Não foi possível concluir. Tente novamente ou contate a equipe.", ephemeral: true }).catch(() => undefined);
+  }
+});
+\nclient.on(Events.GuildMemberAdd, async (member) => {\n  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }\n});\n\nclient.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId === "lanstec:ticket:open") {
     await interaction.showModal(buildTicketModal());
     return;
