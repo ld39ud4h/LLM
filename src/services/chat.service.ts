@@ -8,6 +8,7 @@ import { getUserPersona } from "./user-persona.service.js";
 import { runLocalToolByName } from "./tools/index.js";
 import { planContextTools, type ContextToolName } from "./context-planner.service.js";
 import { routeCommandIntent } from "./command-intent.service.js";
+import { executeExplicitActions } from "./natural-actions.service.js";
 
 function isGreeting(prompt: string): boolean {
   const text = prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -19,6 +20,8 @@ export async function replyToUser(
   onChunk?: TextChunkHandler,
 ): Promise<string> {
   const requestStartedAt = performance.now();
+  const explicitActions = await executeExplicitActions(input.prompt, input.discordUserId);
+  const actionSummary = explicitActions.map((action) => "✅ " + action.detail).join("\n");
   const commandIntent = routeCommandIntent(input.prompt);
   if (commandIntent) {
     logger.info({ feature: "chat-command-router", userId: input.discordUserId, durationMs: Math.round(performance.now() - requestStartedAt) }, "Natural-language command intent handled without LLM");
@@ -31,7 +34,7 @@ export async function replyToUser(
   let systemPrompt: string | undefined;
   let userPersona: string | undefined;
   let selectedTools: ContextToolName[] = [];
-  let contextResultNote = "";
+  let contextResultNote = actionSummary;
   const localToolResults: string[] = [];
   let answer = "";
 
