@@ -23,7 +23,7 @@ export async function replyToUser(
   const explicitActions = await executeExplicitActions(input.prompt, input.discordUserId);
   const actionSummary = explicitActions.map((action) => "✅ " + action.detail).join("\n");
   const commandIntent = routeCommandIntent(input.prompt);
-  if (commandIntent) {
+  if (commandIntent && input.prompt.length <= 160) {
     logger.info({ feature: "chat-command-router", userId: input.discordUserId, durationMs: Math.round(performance.now() - requestStartedAt) }, "Natural-language command intent handled without LLM");
     return commandIntent;
   }
