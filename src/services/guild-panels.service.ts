@@ -25,7 +25,7 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   }
   const messages = await channel.messages.fetch({ limit: 50 });
   const existing = messages.find((message) => message.author.id === guild.client.user?.id && hasCustomId(message, customId));
-  const payload = { components: [build()], flags: MessageFlags.IsComponentsV2 };
+  const payload = { components: [build()], flags: [MessageFlags.IsComponentsV2] as const };
   if (existing) await existing.edit(payload);
   else await channel.send(payload);
 }
@@ -79,7 +79,7 @@ export async function publishSuggestion(guild: Guild, userId: string, title: str
       new ButtonBuilder().setCustomId("lanstec:suggestion:vote:up").setLabel("Apoiar").setEmoji("👍").setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("lanstec:suggestion:vote:down").setLabel("Não apoiar").setEmoji("👎").setStyle(ButtonStyle.Secondary),
     ));
-  await channel.send({ components: [card], flags: MessageFlags.IsComponentsV2, allowedMentions: { users: [] } });
+  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [] } });
 }
 
 export async function publishSupportRequest(guild: Guild, member: GuildMember, subject: string, details: string) {
