@@ -5,6 +5,7 @@ const schema = z.object({
   DISCORD_TOKEN: z.string().min(1),
   DISCORD_CLIENT_ID: z.string().min(1),
   DISCORD_GUILD_ID: z.string().optional(),
+  DISCORD_LOG_WEBHOOK_URL: z.string().url().optional(),
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   OPENROUTER_API_KEY: z.string().optional(),
