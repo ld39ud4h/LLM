@@ -8,7 +8,7 @@ const commandDocs = [
   ["/esquecer", "Remova uma memória específica."],
   ["/lista", "Exibe este catálogo de comandos."],
   ["/setup_lanstec", "Configura categorias, canais, cargos e painéis (administradores)."],
-  ["/webhook_test", "Testa o webhook de monitoramento (administradores)."],
+  ["/webhook_test", "Testa o webhook de monitoramento (administradores)."],\n  ["/alerta-seguranca", "Registra alerta no canal de segurança (equipe)."],
 ];
 
 export const listaCommand = {
