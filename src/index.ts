@@ -12,6 +12,7 @@ import { registerSlashCommands } from "./services/command-registration.service.j
 import { replyToUser } from "./services/chat.service.js";
 import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
 import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bootstrap.service.js";
+import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest } from "./services/guild-panels.service.js";
 
 const healthServer = createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/api/helth") {
@@ -47,7 +48,7 @@ const healthServer = createServer(async (request, response) => {
 const port = Number(process.env.PORT ?? 10000);
 healthServer.listen(port, "0.0.0.0", () => logger.info({ feature: "health", port, path: "/api/helth" }, "HTTP health endpoint is listening"));
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers] });
 const commandMap = new Map(commands.map((command) => [command.data.name, command]));
 
 client.once(Events.ClientReady, async (readyClient) => {
