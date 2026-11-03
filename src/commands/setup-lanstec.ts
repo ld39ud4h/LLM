@@ -34,11 +34,12 @@ const roleChannelGroups = {
 };
 
 type GroupKey = keyof typeof roleChannelGroups;
+type ChannelKind = ChannelType.GuildText | ChannelType.GuildVoice;
 
 const groups: Array<{
   name: string;
   privacy: "public" | GroupKey;
-  channels: Array<{ name: string; type?: ChannelType.GuildText | ChannelType.GuildVoice; topic?: string }>;
+  channels: Array<{ name: string; type?: ChannelKind; topic?: string }>;
 }> = [
   {
     name: "📌 LANSTEC | INÍCIO",
@@ -129,7 +130,7 @@ async function ensureCategory(guild: Guild, name: string, overwrites: OverwriteR
 async function ensureChannel(
   guild: Guild,
   category: CategoryChannel,
-  definition: { name: string; type?: ChannelType; topic?: string },
+  definition: { name: string; type?: ChannelKind; topic?: string },
 ): Promise<GuildBasedChannel> {
   const type = definition.type ?? ChannelType.GuildText;
   const existing = guild.channels.cache.find(
