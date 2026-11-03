@@ -4,7 +4,7 @@ import { memoriesCommand } from "./memories.js";
 import { forgetCommand } from "./forget.js";
 import { personaCommand } from "./persona.js";
 import { setupLanstecCommand } from "./setup-lanstec.js";
-import { webhookTestCommand } from "./webhook-test.js";\nimport { listaCommand } from "./lista.js";
+import { webhookTestCommand } from "./webhook-test.js";\nimport { listaCommand } from "./lista.js";\nimport { securityAlertCommand } from "./alerta-seguranca.js";
 
 export const commands = [
   askCommand,
@@ -13,5 +13,5 @@ export const commands = [
   forgetCommand,
   personaCommand,
   setupLanstecCommand,
-  webhookTestCommand,\n  listaCommand,
+  webhookTestCommand,\n  listaCommand,\n  securityAlertCommand,
 ];
