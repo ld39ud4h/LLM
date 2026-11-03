@@ -95,8 +95,8 @@ const groups: Array<{
     privacy: "admin",
     channels: [
       { name: "comandos-do-bot" },
-      { name: "logs-do-bot" },
-      { name: "status-e-alertas" },
+      { name: "logs-do-bot", topic: "Logs operacionais, erros e diagnósticos do bot." },
+      { name: "status-e-alertas", topic: "Inicialização, disponibilidade e status de execução." },
     ],
   },
 ];
