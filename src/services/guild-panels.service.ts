@@ -124,3 +124,32 @@ export async function initializeGuildPanels(client: Client) {
     catch (error) { logger.error({ err: error, guildId: guild.id, feature: "panels" }, "Panel initialization failed"); }
   }
 }
+
+export function buildTicketModal() {
+  return new ModalBuilder().setCustomId("lanstec:ticket:submit").setTitle("Abrir ticket")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("subject").setLabel("Assunto").setStyle(TextInputStyle.Short).setMaxLength(90).setRequired(true)),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("details").setLabel("Descreva sua solicitação").setStyle(TextInputStyle.Paragraph).setMaxLength(1500).setRequired(true)),
+    );
+}
+
+export async function createPrivateTicket(guild: Guild, member: GuildMember, subject: string, details: string) {
+  const category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === "🤝 LANSTEC | CLIENTES");
+  const staffNames = ["Administrador", "Gerente", "Suporte técnico", "Coordenador técnico"];
+  const overwrites: any[] = [
+    { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
+    { id: member.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "AttachFiles"] },
+  ];
+  for (const name of staffNames) {
+    const role = guild.roles.cache.find(r => r.name === name);
+    if (role) overwrites.push({ id: role.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] });
+  }
+  const safeName = subject.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 25).replace(/^-|-$/g, "") || "atendimento";
+  const channel = await guild.channels.create({ name: `ticket-${safeName}-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,5)}`, type: ChannelType.GuildText, parent: category?.id, permissionOverwrites: overwrites, reason: "Ticket privado LANSTEC" });
+  const card = new ContainerBuilder().setAccentColor(0x2563eb)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\\n**Assunto:** " + subject))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\\nA equipe responderá neste canal. Não envie senhas ou tokens."));
+  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
+  return channel;
+}
