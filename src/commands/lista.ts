@@ -3,9 +3,9 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, ContainerBuilder, Tex
 const commandDocs = [
   ["/ask", "Converse com o consultor de IA."],
   ["/persona", "Personalize o estilo do consultor."],
-  ["/lembrar", "Salve uma informação na memória (se disponível)."],
-  ["/memorias", "Consulte suas memórias salvas."],
-  ["/esquecer", "Remova uma memória específica."],
+  ["/remember", "Salve uma informação na memória."],
+  ["/memories", "Consulte suas memórias salvas."],
+  ["/forget", "Remova uma memória específica."],
   ["/lista", "Exibe este catálogo de comandos."],
   ["/setup_lanstec", "Configura categorias, canais, cargos e painéis (administradores)."],
   ["/webhook_test", "Testa o webhook de monitoramento (administradores)."],
