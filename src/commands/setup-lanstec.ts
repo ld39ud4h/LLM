@@ -138,7 +138,7 @@ async function ensureChannel(
     (channel) => channel.parentId === category.id && channel.name === definition.name && channel.type === type,
   );
   if (existing) {
-    if (type === ChannelType.GuildText && definition.topic && "setTopic" in existing) await existing.setTopic(definition.topic, "Sincronização de tópico LANSTEC");
+    if (existing.type === ChannelType.GuildText && definition.topic) await existing.setTopic(definition.topic, "Sincronização de tópico LANSTEC");
     return existing;
   }
   return guild.channels.create({
