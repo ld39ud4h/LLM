@@ -7,16 +7,16 @@ import { logger } from "../config/logger.js";
 
 const ACCENT = 0x06b6d4;
 const PANEL_IDS = {
-  suggestions: "lanstec:panel:suggestions",
-  support: "lanstec:panel:support",
-  tickets: "lanstec:panel:tickets",
-  rules: "lanstec:panel:rules",
-  docs: "lanstec:panel:docs",
+  suggestions: "PANEL:suggestions",
+  support: "PANEL:support",
+  tickets: "PANEL:tickets",
+  rules: "PANEL:rules",
+  docs: "PANEL:docs",
 };
 
 function hasCustomId(message: Message, customId: string): boolean {
   const scan = (items: any[]): boolean => items.some((item) =>
-    item.customId === customId || (Array.isArray(item.components) && scan(item.components)));
+    item.customId === customId || (typeof item.content === "string" && item.content.includes(customId)) || (Array.isArray(item.components) && scan(item.components)));
   return scan(message.components.map((component) => component.toJSON() as any));
 }
 
@@ -42,7 +42,7 @@ export async function publishGuildPanels(guild: Guild) {
       .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("lanstec:suggestion:open").setLabel("Enviar sugestão").setEmoji("💡").setStyle(ButtonStyle.Primary),
       ))
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • PARTICIPAÇÃO DA COMUNIDADE")));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • PARTICIPAÇÃO DA COMUNIDADE • PANEL:suggestions")));
   await upsertPanel(guild, "central-de-atendimento", PANEL_IDS.support, () =>
     new ContainerBuilder().setAccentColor(0x0f766e)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🛟 Central de atendimento\nPrecisa de ajuda? Abra uma solicitação para a equipe LANSTEC.\n\n**Antes de abrir:** não publique senhas, tokens, dados pessoais ou informações confidenciais em canais públicos."))
@@ -51,19 +51,19 @@ export async function publishGuildPanels(guild: Guild) {
       .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("lanstec:support:open").setLabel("Solicitar atendimento").setEmoji("🎫").setStyle(ButtonStyle.Success),
       ))
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • SUPORTE E RELACIONAMENTO")));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • SUPORTE E RELACIONAMENTO • PANEL:support")));
   await upsertPanel(guild, "abrir-ticket", PANEL_IDS.tickets, () =>
     new ContainerBuilder().setAccentColor(0x2563eb)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Central de tickets\\nAbra um atendimento privado com a equipe. Não compartilhe senhas ou tokens."))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Central de tickets\\nAbra um atendimento privado com a equipe. Não compartilhe senhas ou tokens.\\n-# PANEL:tickets"))
       .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("lanstec:ticket:open").setLabel("Abrir ticket privado").setEmoji("🎫").setStyle(ButtonStyle.Primary),
       )));
   await upsertPanel(guild, "regras-e-seguranca", PANEL_IDS.rules, () =>
     new ContainerBuilder().setAccentColor(0xf59e0b)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\\n**1. Respeito:** cordialidade.\\n**2. Privacidade:** não publique dados pessoais, credenciais ou informações de clientes.\\n**3. Segurança:** testes somente com autorização e escopo definido.\\n**4. Conteúdo:** sem spam, golpes ou malware.\\n**5. Organização:** use os canais corretamente.\\n**6. Denúncias:** procure a moderação ou abra ticket.")));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\\n**1. Respeito:** cordialidade.\\n**2. Privacidade:** não publique dados pessoais, credenciais ou informações de clientes.\\n**3. Segurança:** testes somente com autorização e escopo definido.\\n**4. Conteúdo:** sem spam, golpes ou malware.\\n**5. Organização:** use os canais corretamente.\\n**6. Denúncias:** procure a moderação ou abra ticket.\\n-# PANEL:rules")));
   await upsertPanel(guild, "documentacao-publica", PANEL_IDS.docs, () =>
     new ContainerBuilder().setAccentColor(0x0891b2)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação pública LANSTEC\\n**Serviços:** consultoria de TI, segurança da informação e conscientização.\\n**Avaliações:** somente com autorização e escopo acordado.\\n**Atendimento:** abra ticket para suporte.\\n**Privacidade:** não compartilhe dados sensíveis em canais públicos.\\n\\nEsta documentação não substitui contratos, propostas ou políticas formais.")));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação pública LANSTEC\\n**Serviços:** consultoria de TI, segurança da informação e conscientização.\\n**Avaliações:** somente com autorização e escopo acordado.\\n**Atendimento:** abra ticket para suporte.\\n**Privacidade:** não compartilhe dados sensíveis em canais públicos.\\n\\nEsta documentação não substitui contratos, propostas ou políticas formais.\\n-# PANEL:docs")));
 }
 
 export function buildSuggestionModal() {
