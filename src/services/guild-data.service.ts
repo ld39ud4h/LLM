@@ -32,3 +32,10 @@ export async function saveSupport(input:{guildId:string;messageId?:string;reques
  const {data,error}=await supabase.from("lanstec_support_requests").insert({guild_id:input.guildId,message_id:input.messageId??null,requester_id:input.requesterId,subject:input.subject,details:input.details}).select("id").single();
  if(error) throw error; await auditEvent({guildId:input.guildId,actorId:input.requesterId,eventType:"support.created",targetId:data.id}); return data.id as string;
 }
+
+export async function persistTicketMessage(input:{channelId:string;messageId:string;authorId:string;authorTag:string;content:string;attachments:unknown[];createdAt:string}) {
+ const {data:ticket,error:lookupError}=await supabase.from("lanstec_tickets").select("id").eq("channel_id",input.channelId).maybeSingle();
+ if(lookupError)throw lookupError;if(!ticket)return;
+ const {error}=await supabase.from("lanstec_ticket_messages").upsert({ticket_id:ticket.id,discord_message_id:input.messageId,author_id:input.authorId,author_tag:input.authorTag,content:input.content,attachments:input.attachments,created_at:input.createdAt},{onConflict:"discord_message_id"});
+ if(error)throw error;
+}
