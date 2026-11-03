@@ -15,9 +15,9 @@ const commandDocs = [
 export const listaCommand = {
   data: new SlashCommandBuilder().setName("lista").setDescription("Lista de comandos e documentação rápida"),
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-    const content = "# 📖 Catálogo de comandos LANSTEC\\n" +
-      commandDocs.map(([name, description]) => `**${name}** — ${description}`).join("\\n") +
-      "\\n\\n**Painéis:** sugestões, atendimento, tickets, regras e documentação pública.\\n" +
+    const content = "# 📖 Catálogo de comandos LANSTEC\n" +
+      commandDocs.map(([name, description]) => `**${name}** — ${description}`).join("\n") +
+      "\n\n**Painéis:** sugestões, atendimento, tickets, regras e documentação pública.\n" +
       "Use os comandos conforme suas permissões. Recursos administrativos são restritos.";
     const card = new ContainerBuilder().setAccentColor(0x06b6d4)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(content))
