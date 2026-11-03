@@ -19,7 +19,6 @@ import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, pers
 
 const healthServer = createServer(async (request, response) => {
   if (await handleInternalApi(request, response)) return;
-  if (await handleInternalApi(request, response)) return;
   if (request.method === "GET" && request.url === "/api/helth") {
     response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
     response.end("OK");
