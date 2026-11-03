@@ -13,9 +13,12 @@ import { replyToUser } from "./services/chat.service.js";
 import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
 import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bootstrap.service.js";
 import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest, buildTicketModal, createPrivateTicket } from "./services/guild-panels.service.js";
-import { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";\nimport { handleInternalApi } from "./api/internal-api.js";\nimport { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket } from "./services/guild-data.service.js";
+import { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
+import { handleInternalApi } from "./api/internal-api.js";
+import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, persistTicketMessage } from "./services/guild-data.service.js";\nimport { handleInternalApi } from "./api/internal-api.js";\nimport { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket } from "./services/guild-data.service.js";
 
-const healthServer = createServer(async (request, response) => {\n  if (await handleInternalApi(request, response)) return;
+const healthServer = createServer(async (request, response) => {
+  if (await handleInternalApi(request, response)) return;\n  if (await handleInternalApi(request, response)) return;
   if (request.method === "GET" && request.url === "/api/helth") {
     response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
     response.end("OK");
@@ -91,18 +94,28 @@ client.on(Events.GuildMemberAdd, async (member) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (interaction.isButton() && interaction.customId === "lanstec:ticket:open") {
-    await interaction.showModal(buildTicketModal());
-    return;
-  }
+  if (interaction.isButton() && interaction.customId === "lanstec:ticket:open") { await interaction.showModal(buildTicketModal()); return; }
   if (interaction.isModalSubmit() && interaction.customId === "lanstec:ticket:submit") {
     try {
-      const ticket = await createPrivateTicket(interaction.guild!, await interaction.guild!.members.fetch(interaction.user.id), interaction.fields.getTextInputValue("subject"), interaction.fields.getTextInputValue("details"));
-      await interaction.reply({ content: "Ticket aberto: " + ticket.toString(), ephemeral: true });
-    } catch (error) {
-      logger.error({ err: error, feature: "ticket" }, "Ticket creation failed");
-      await interaction.reply({ content: "Não consegui criar o ticket. Verifique as permissões do bot.", ephemeral: true });
-    }
+      const subject=interaction.fields.getTextInputValue("subject"), details=interaction.fields.getTextInputValue("details");
+      const ticket=await createPrivateTicket(interaction.guild!,await interaction.guild!.members.fetch(interaction.user.id),subject,details);
+      await saveTicket({guildId:interaction.guild!.id,channelId:ticket.id,requesterId:interaction.user.id,subject,details});
+      await interaction.reply({content:"Ticket aberto: "+ticket.toString(),ephemeral:true});
+    } catch(error) { logger.error({err:error,feature:"ticket"},"Ticket creation failed"); await interaction.reply({content:"Não consegui criar o ticket. Verifique as permissões do bot.",ephemeral:true}); }
+    return;
+  }
+  if(interaction.isButton() && ["lanstec:ticket:claim","lanstec:ticket:close"].includes(interaction.customId)) {
+    try {
+      if(!interaction.guild||!interaction.channel||!("permissionOverwrites" in interaction.channel)){await interaction.reply({content:"Ação disponível somente no canal de ticket.",ephemeral:true});return;}
+      const member=await interaction.guild.members.fetch(interaction.user.id);
+      const staff=member.permissions.has("ManageChannels")||member.permissions.has("Administrator")||member.roles.cache.some(r=>["Administrador","Gerente","Suporte técnico","Coordenador técnico"].includes(r.name));
+      if(!staff){await interaction.reply({content:"Somente a equipe pode assumir ou encerrar tickets.",ephemeral:true});return;}
+      if(interaction.customId==="lanstec:ticket:claim"){await claimTicket(interaction.channel.id,interaction.user.id);await interaction.reply({content:"🧑‍💻 Ticket assumido por <@"+interaction.user.id+">"});return;}
+      const closed=await closeTicket(interaction.channel.id,interaction.user.id);
+      await interaction.channel.permissionOverwrites.edit(closed.requester_id,{SendMessages:false,AddReactions:false});
+      await interaction.channel.send("🔒 Ticket encerrado por <@"+interaction.user.id+">. Transcrição preservada no banco.");
+      await interaction.reply({content:"Ticket encerrado e solicitante bloqueado.",ephemeral:true});
+    } catch(error) {logger.error({err:error,feature:"ticket-action"},"Ticket action failed");if(interaction.isRepliable()&&!interaction.replied)await interaction.reply({content:"Não foi possível concluir a ação.",ephemeral:true}).catch(()=>undefined);}
     return;
   }
 });
@@ -285,3 +298,9 @@ logger.info({ feature: "startup", nodeEnv: env.NODE_ENV, logLevel: env.LOG_LEVEL
 try { await initializeLocalCache(); } catch (error) { logger.warn({ err: error, feature: "sqlite-cache" }, "Local cache initialization failed; continuing with Supabase"); }
 try { await initializeAIProvider(); } catch (error) { logger.error({ err: error, feature: "ai-bootstrap" }, "AI provider bootstrap failed; generation will use runtime fallback"); }
 await client.login(env.DISCORD_TOKEN);
+
+client.on(Events.MessageCreate, async message => {
+ if(!message.guild||!message.channel.isTextBased()||!("id" in message.channel))return;
+ try { await persistTicketMessage({channelId:message.channel.id,messageId:message.id,authorId:message.author.id,authorTag:message.author.tag,content:message.content,attachments:message.attachments.map(a=>({name:a.name,url:a.url,contentType:a.contentType,size:a.size})),createdAt:message.createdAt.toISOString()}); }
+ catch(error){logger.warn({err:error,channelId:message.channel.id,messageId:message.id},"Ticket transcript persistence failed");}
+});
