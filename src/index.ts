@@ -12,7 +12,8 @@ import { registerSlashCommands } from "./services/command-registration.service.j
 import { replyToUser } from "./services/chat.service.js";
 import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
 import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bootstrap.service.js";
-import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest, buildTicketModal, createPrivateTicket } from "./services/guild-panels.service.js";\nimport { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
+import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest, buildTicketModal, createPrivateTicket } from "./services/guild-panels.service.js";
+import { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
 
 const healthServer = createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/api/helth") {
@@ -53,7 +54,8 @@ const commandMap = new Map(commands.map((command) => [command.data.name, command
 
 client.once(Events.ClientReady, async (readyClient) => {
   logger.info({ feature: "discord", botTag: readyClient.user.tag, botUserId: readyClient.user.id }, "Discord bot is online");
-  await initializeGuildPanels(readyClient);\n  await broadcastStartup(readyClient);
+  await initializeGuildPanels(readyClient);
+  await broadcastStartup(readyClient);
   try {
     await registerSlashCommands();
   } catch (error) {
@@ -83,7 +85,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "Não foi possível concluir. Tente novamente ou contate a equipe.", ephemeral: true }).catch(() => undefined);
   }
 });
-\nclient.on(Events.GuildMemberAdd, async (member) => {\n  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }\n});\n\nclient.on(Events.InteractionCreate, async (interaction) => {
+
+client.on(Events.GuildMemberAdd, async (member) => {\n  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }\n});\n
+client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId === "lanstec:ticket:open") {
     await interaction.showModal(buildTicketModal());
     return;
@@ -99,7 +103,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 });
-\nclient.on(Events.InteractionCreate, async (interaction) => {
+
+client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId.startsWith("persona:reset:")) {
     await handlePersonaReset(interaction);
     return;
@@ -143,7 +148,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await command.execute(interaction);
     logger.info({ feature: "discord-command", command: interaction.commandName, userId: interaction.user.id, durationMs: Date.now() - startedAt }, "Slash command handler completed");
   } catch (error) {
-    logger.error({ err: error, feature: "discord-command", command: interaction.commandName, userId: interaction.user.id, guildId: interaction.guildId, channelId: interaction.channelId, durationMs: Date.now() - startedAt }, "Slash command handler failed");\n    if (interaction.guildId) void sendGuildNotice(client, interaction.guildId, "logs-do-bot", "❌ Falha em comando", `/${interaction.commandName} • user ${interaction.user.id} • channel ${interaction.channelId} • ${String(error).slice(0,500)}`, 0xef4444);
+    logger.error({ err: error, feature: "discord-command", command: interaction.commandName, userId: interaction.user.id, guildId: interaction.guildId, channelId: interaction.channelId, durationMs: Date.now() - startedAt }, "Slash command handler failed");
+    if (interaction.guildId) void sendGuildNotice(client, interaction.guildId, "logs-do-bot", "❌ Falha em comando", `/${interaction.commandName} • user ${interaction.user.id} • channel ${interaction.channelId} • ${String(error).slice(0,500)}`, 0xef4444);
     void sendDiscordWebhook("Falha em comando", `O comando **/${interaction.commandName}** falhou.`, { color: 0xe74c3c, fields: [{ name: "Servidor", value: interaction.guildId ?? "DM", inline: true }, { name: "Canal", value: interaction.channelId, inline: true }] });
     try {
       const content = "Ocorreu um erro ao executar este comando. Tente novamente.";
