@@ -15,10 +15,11 @@ import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bo
 import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest, buildTicketModal, createPrivateTicket } from "./services/guild-panels.service.js";
 import { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
 import { handleInternalApi } from "./api/internal-api.js";
-import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, persistTicketMessage } from "./services/guild-data.service.js";\nimport { handleInternalApi } from "./api/internal-api.js";\nimport { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket } from "./services/guild-data.service.js";
+import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, persistTicketMessage } from "./services/guild-data.service.js";
 
 const healthServer = createServer(async (request, response) => {
-  if (await handleInternalApi(request, response)) return;\n  if (await handleInternalApi(request, response)) return;
+  if (await handleInternalApi(request, response)) return;
+  if (await handleInternalApi(request, response)) return;
   if (request.method === "GET" && request.url === "/api/helth") {
     response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
     response.end("OK");
@@ -71,11 +72,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId === "lanstec:suggestion:open") { await interaction.showModal(buildSuggestionModal()); return; }
     if (interaction.isButton() && interaction.customId === "lanstec:support:open") { await interaction.showModal(buildSupportModal()); return; }
     if (interaction.isModalSubmit() && interaction.customId === "lanstec:suggestion:submit") {
-      const title = interaction.fields.getTextInputValue("title"); const description = interaction.fields.getTextInputValue("description");\n      await publishSuggestion(interaction.guild!, interaction.user.id, title, description);\n      await saveSuggestion({guildId:interaction.guild!.id,authorId:interaction.user.id,title,description});
+      const title = interaction.fields.getTextInputValue("title"); const description = interaction.fields.getTextInputValue("description");
+      await publishSuggestion(interaction.guild!, interaction.user.id, title, description);
+      await saveSuggestion({guildId:interaction.guild!.id,authorId:interaction.user.id,title,description});
       await interaction.reply({ content: "Sugestão enviada! Obrigado por contribuir.", ephemeral: true }); return;
     }
     if (interaction.isModalSubmit() && interaction.customId === "lanstec:support:submit") {
-      const subject = interaction.fields.getTextInputValue("subject"); const details = interaction.fields.getTextInputValue("details");\n      await publishSupportRequest(interaction.guild!, await interaction.guild!.members.fetch(interaction.user.id), subject, details);\n      await saveSupport({guildId:interaction.guild!.id,requesterId:interaction.user.id,subject,details});
+      const subject = interaction.fields.getTextInputValue("subject"); const details = interaction.fields.getTextInputValue("details");
+      await publishSupportRequest(interaction.guild!, await interaction.guild!.members.fetch(interaction.user.id), subject, details);
+      await saveSupport({guildId:interaction.guild!.id,requesterId:interaction.user.id,subject,details});
       await interaction.reply({ content: "Solicitação encaminhada à equipe.", ephemeral: true }); return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("lanstec:docs:")) {
