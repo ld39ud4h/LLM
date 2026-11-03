@@ -62,6 +62,22 @@ client.once(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {\n  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }\n});\n\nclient.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton() && interaction.customId === "lanstec:ticket:open") {
+    await interaction.showModal(buildTicketModal());
+    return;
+  }
+  if (interaction.isModalSubmit() && interaction.customId === "lanstec:ticket:submit") {
+    try {
+      const ticket = await createPrivateTicket(interaction.guild!, await interaction.guild!.members.fetch(interaction.user.id), interaction.fields.getTextInputValue("subject"), interaction.fields.getTextInputValue("details"));
+      await interaction.reply({ content: "Ticket aberto: " + ticket.toString(), ephemeral: true });
+    } catch (error) {
+      logger.error({ err: error, feature: "ticket" }, "Ticket creation failed");
+      await interaction.reply({ content: "Não consegui criar o ticket. Verifique as permissões do bot.", ephemeral: true });
+    }
+    return;
+  }
+});
+\nclient.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId.startsWith("persona:reset:")) {
     await handlePersonaReset(interaction);
     return;
