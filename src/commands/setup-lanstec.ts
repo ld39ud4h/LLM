@@ -162,6 +162,11 @@ export const setupLanstecCommand = {
     await interaction.deferReply({ ephemeral: true });
     const roles = new Map<string, Role>();
     for (const definition of roleDefinitions) roles.set(definition.name, await ensureRole(guild, definition));
+    const botRole = roles.get("Bot / sistemas");
+    if (botRole) {
+      const botMember = await guild.members.fetchMe();
+      if (!botMember.roles.cache.has(botRole.id)) await botMember.roles.add(botRole, "Acesso do bot aos canais internos LANSTEC");
+    }
 
     const everyone = guild.roles.everyone;
     let createdCategories = 0;
