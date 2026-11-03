@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { env } from "./config/env.js";
+import { sendDiscordWebhook } from "./services/discord-webhook.service.js";
 import { logger } from "./config/logger.js";
 import { commands } from "./commands/index.js";
 import { handlePersonaComponent, handlePersonaReset } from "./commands/persona.js";
