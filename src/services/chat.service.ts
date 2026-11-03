@@ -7,6 +7,7 @@ import { listMemories } from "./memory.service.js";
 import { getUserPersona } from "./user-persona.service.js";
 import { runLocalToolByName } from "./tools/index.js";
 import { planContextTools, type ContextToolName } from "./context-planner.service.js";
+import { routeCommandIntent } from "./command-intent.service.js";
 
 function isGreeting(prompt: string): boolean {
   const text = prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -18,6 +19,11 @@ export async function replyToUser(
   onChunk?: TextChunkHandler,
 ): Promise<string> {
   const requestStartedAt = performance.now();
+  const commandIntent = routeCommandIntent(input.prompt);
+  if (commandIntent) {
+    logger.info({ feature: "chat-command-router", userId: input.discordUserId, durationMs: Math.round(performance.now() - requestStartedAt) }, "Natural-language command intent handled without LLM");
+    return commandIntent;
+  }
   const greeting = isGreeting(input.prompt);
   let conversationId: string | undefined;
   let history: Awaited<ReturnType<typeof getHistory>> = [];
