@@ -178,10 +178,12 @@ export const setupLanstecCommand = {
           const role = roles.get(roleName);
           if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory] });
         }
-        if (group.privacy === "staff" || group.privacy === "technical" || group.privacy === "clients") {
-          for (const roleName of allowedRoles) {
-            const role = roles.get(roleName);
-            if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+        for (const roleName of allowedRoles) {
+          const role = roles.get(roleName);
+          if (!role) continue;
+          if (roleName === "Bot / sistemas") overwrites.push({ id: role.id, allow: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+          else if (group.privacy === "staff" || group.privacy === "technical" || group.privacy === "clients") {
+            overwrites.push({ id: role.id, allow: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
           }
         }
       }
