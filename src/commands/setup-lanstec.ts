@@ -173,7 +173,7 @@ export const setupLanstecCommand = {
       const overwrites: OverwriteResolvable[] = [];
       if (group.privacy !== "public") {
         overwrites.push({ id: everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
-        const allowedRoles = roleChannelGroups[group.privacy as GroupKey];
+        const allowedRoles = [...roleChannelGroups[group.privacy as GroupKey], "Bot / sistemas"];
         for (const roleName of allowedRoles) {
           const role = roles.get(roleName);
           if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory] });
