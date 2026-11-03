@@ -8,7 +8,8 @@ import { logger } from "../config/logger.js";
 const ACCENT = 0x06b6d4;
 const PANEL_IDS = {
   suggestions: "lanstec:panel:suggestions",
-  support: "lanstec:panel:support",\n  tickets: "lanstec:panel:tickets",\n  rules: "lanstec:panel:rules",\n  docs: "lanstec:panel:docs",
+  support: "lanstec:panel:support",
+  tickets: "lanstec:panel:tickets",\n  rules: "lanstec:panel:rules",\n  docs: "lanstec:panel:docs",
 };
 
 function hasCustomId(message: Message, customId: string): boolean {
@@ -49,6 +50,18 @@ export async function publishGuildPanels(guild: Guild) {
         new ButtonBuilder().setCustomId("lanstec:support:open").setLabel("Solicitar atendimento").setEmoji("🎫").setStyle(ButtonStyle.Success),
       ))
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • SUPORTE E RELACIONAMENTO")));
+  await upsertPanel(guild, "abrir-ticket", PANEL_IDS.tickets, () =>
+    new ContainerBuilder().setAccentColor(0x2563eb)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Central de tickets\\nAbra um atendimento privado com a equipe. Não compartilhe senhas ou tokens."))
+      .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("lanstec:ticket:open").setLabel("Abrir ticket privado").setEmoji("🎫").setStyle(ButtonStyle.Primary),
+      )));
+  await upsertPanel(guild, "regras-e-seguranca", PANEL_IDS.rules, () =>
+    new ContainerBuilder().setAccentColor(0xf59e0b)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\\n**1. Respeito:** cordialidade.\\n**2. Privacidade:** não publique dados pessoais, credenciais ou informações de clientes.\\n**3. Segurança:** testes somente com autorização e escopo definido.\\n**4. Conteúdo:** sem spam, golpes ou malware.\\n**5. Organização:** use os canais corretamente.\\n**6. Denúncias:** procure a moderação ou abra ticket.")));
+  await upsertPanel(guild, "documentacao-publica", PANEL_IDS.docs, () =>
+    new ContainerBuilder().setAccentColor(0x0891b2)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação pública LANSTEC\\n**Serviços:** consultoria de TI, segurança da informação e conscientização.\\n**Avaliações:** somente com autorização e escopo acordado.\\n**Atendimento:** abra ticket para suporte.\\n**Privacidade:** não compartilhe dados sensíveis em canais públicos.\\n\\nEsta documentação não substitui contratos, propostas ou políticas formais.")));
 }
 
 export function buildSuggestionModal() {
