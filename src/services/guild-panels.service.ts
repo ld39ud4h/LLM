@@ -4,6 +4,7 @@ import {
   TextInputStyle, TextDisplayBuilder, SeparatorBuilder, Client,
 } from "discord.js";
 import { logger } from "../config/logger.js";
+import { getGuildRuntimeConfig, setGuildPanel } from "./guild-config.service.js";
 
 const ACCENT = 0x06b6d4;
 const PANEL_IDS = {
@@ -26,11 +27,28 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
     logger.warn({ guildId: guild.id, channelName }, "Panel channel not found; run /setup_lanstec first");
     return;
   }
-  const messages = await channel.messages.fetch({ limit: 50 });
-  const existing = messages.find((message) => message.author.id === guild.client.user?.id && hasCustomId(message, customId));
+  const panelKey = customId.replace("PANEL:", "");
+  const config = await getGuildRuntimeConfig(guild.id);
+  const saved = config.panels?.[panelKey];
   const payload = { components: [build()], flags: [MessageFlags.IsComponentsV2] as const };
-  if (existing) await existing.edit(payload);
-  else await channel.send(payload);
+  let existing: Message | undefined;
+  if (saved?.channelId === channel.id && saved.messageId) {
+    existing = await channel.messages.fetch(saved.messageId).catch(() => undefined);
+    if (existing && existing.author.id !== guild.client.user?.id) existing = undefined;
+  }
+  if (!existing) {
+    const recent = await channel.messages.fetch({ limit: 100 });
+    existing = recent.find((message) => message.author.id === guild.client.user?.id && hasCustomId(message, customId));
+  }
+  if (existing) {
+    await existing.edit(payload);
+    await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: existing.id, customId });
+    logger.info({ guildId: guild.id, panelKey, channelId: channel.id, messageId: existing.id, action: "updated" }, "Guild panel reconciled");
+  } else {
+    const created = await channel.send(payload);
+    await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: created.id, customId });
+    logger.info({ guildId: guild.id, panelKey, channelId: channel.id, messageId: created.id, action: "created" }, "Guild panel reconciled");
+  }
 }
 
 export async function publishGuildPanels(guild: Guild) {
