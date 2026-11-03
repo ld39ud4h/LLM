@@ -12,7 +12,7 @@ import { registerSlashCommands } from "./services/command-registration.service.j
 import { replyToUser } from "./services/chat.service.js";
 import { initializeLocalCache, closeLocalCache } from "./services/cache.service.js";
 import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bootstrap.service.js";
-import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest } from "./services/guild-panels.service.js";\nimport { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
+import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest, buildTicketModal, createPrivateTicket } from "./services/guild-panels.service.js";\nimport { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
 
 const healthServer = createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/api/helth") {
