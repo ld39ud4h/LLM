@@ -51,6 +51,7 @@ const commandMap = new Map(commands.map((command) => [command.data.name, command
 
 client.once(Events.ClientReady, async (readyClient) => {
   logger.info({ feature: "discord", botTag: readyClient.user.tag, botUserId: readyClient.user.id }, "Discord bot is online");
+  void sendDiscordWebhook("Bot online", `LANSTEC bot conectado como **${readyClient.user.tag}**.`, { color: 0x2ecc71 });
   try {
     await registerSlashCommands();
   } catch (error) {
@@ -103,6 +104,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     logger.info({ feature: "discord-command", command: interaction.commandName, userId: interaction.user.id, durationMs: Date.now() - startedAt }, "Slash command handler completed");
   } catch (error) {
     logger.error({ err: error, feature: "discord-command", command: interaction.commandName, userId: interaction.user.id, guildId: interaction.guildId, channelId: interaction.channelId, durationMs: Date.now() - startedAt }, "Slash command handler failed");
+    void sendDiscordWebhook("Falha em comando", `O comando **/${interaction.commandName}** falhou.`, { color: 0xe74c3c, fields: [{ name: "Servidor", value: interaction.guildId ?? "DM", inline: true }, { name: "Canal", value: interaction.channelId, inline: true }] });
     try {
       const content = "Ocorreu um erro ao executar este comando. Tente novamente.";
       if (interaction.deferred || interaction.replied) await interaction.followUp({ content, ephemeral: true });
