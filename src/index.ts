@@ -82,7 +82,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   } catch (error) {
     logger.error({ err: error, feature: "guild-panels" }, "Panel interaction failed");
-    if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "Não foi possível concluir. Tente novamente ou contate a equipe.", ephemeral: true }).catch(() => undefined);
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) await interaction.reply({ content: "Não foi possível concluir. Tente novamente ou contate a equipe.", ephemeral: true }).catch(() => undefined);
   }
 });
 
