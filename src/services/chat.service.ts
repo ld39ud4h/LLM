@@ -34,7 +34,7 @@ export async function replyToUser(
   let systemPrompt: string | undefined;
   let userPersona: string | undefined;
   let selectedTools: ContextToolName[] = [];
-  let contextResultNote = actionSummary;
+  let contextResultNote = [actionSummary, commandIntent].filter(Boolean).join("\\n\\n");
   const localToolResults: string[] = [];
   let answer = "";
 
