@@ -86,7 +86,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-client.on(Events.GuildMemberAdd, async (member) => {\n  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }\n});\n
+client.on(Events.GuildMemberAdd, async (member) => {
+  try { await sendWelcome(member); } catch (error) { logger.warn({ err: error, guildId: member.guild.id }, "Welcome card failed"); }
+});
+
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId === "lanstec:ticket:open") {
     await interaction.showModal(buildTicketModal());
