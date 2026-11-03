@@ -140,7 +140,8 @@ export async function createPrivateTicket(guild: Guild, member: GuildMember, sub
   const staffNames = ["Administrador", "Gerente", "Suporte técnico", "Coordenador técnico"];
   const overwrites: any[] = [
     { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
-    { id: member.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "AttachFiles"] },\n    ...(guild.client.user ? [{ id: guild.client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] }] : []),
+    { id: member.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "AttachFiles"] },
+    ...(guild.client.user ? [{ id: guild.client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] }] : []),
   ];
   for (const name of staffNames) {
     const role = guild.roles.cache.find(r => r.name === name);
