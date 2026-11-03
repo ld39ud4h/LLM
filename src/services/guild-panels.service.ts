@@ -90,7 +90,7 @@ export async function publishSupportRequest(guild: Guild, member: GuildMember, s
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("**" + subject + "**\n" + details))
     .addSeparatorComponents(new SeparatorBuilder().setSpacing(1))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + "> • " + new Date().toLocaleString("pt-BR")));
-  await channel.send({ components: [card], flags: MessageFlags.IsComponentsV2, allowedMentions: { users: [] } });
+  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [] } });
 }
 
 export async function sendWelcome(member: GuildMember) {
@@ -102,7 +102,7 @@ export async function sendWelcome(member: GuildMember) {
     .addSeparatorComponents(new SeparatorBuilder().setSpacing(2))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("**Comece por aqui**\n• Leia <#"+(member.guild.channels.cache.find(c=>c.name==="regras-e-seguranca")?.id ?? "")+">.\n• Conheça os <#"+(member.guild.channels.cache.find(c=>c.name==="anuncios")?.id ?? "")+">.\n• Converse em <#"+(member.guild.channels.cache.find(c=>c.name==="bate-papo")?.id ?? "")+">.\n• Compartilhe ideias em <#"+(member.guild.channels.cache.find(c=>c.name==="sugestoes")?.id ?? "")+">."))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# Mantenha seus dados e credenciais sempre protegidos."));
-  await channel.send({ components: [card], flags: MessageFlags.IsComponentsV2, allowedMentions: { users: [member.id] } });
+  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
 }
 
 export async function initializeGuildPanels(client: Client) {
