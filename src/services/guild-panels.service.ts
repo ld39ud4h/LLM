@@ -152,7 +152,8 @@ export async function createPrivateTicket(guild: Guild, member: GuildMember, sub
   const card = new ContainerBuilder().setAccentColor(0x2563eb)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\\n**Assunto:** " + subject))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\\nA equipe responderá neste canal. Não envie senhas ou tokens."))\n    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("lanstec:ticket:claim").setLabel("Assumir").setEmoji("🧑‍💻").setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId("lanstec:ticket:close").setLabel("Encerrar").setEmoji("🔒").setStyle(ButtonStyle.Danger)));
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\\nA equipe responderá neste canal. Não envie senhas ou tokens."))
+    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("lanstec:ticket:claim").setLabel("Assumir").setEmoji("🧑‍💻").setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId("lanstec:ticket:close").setLabel("Encerrar").setEmoji("🔒").setStyle(ButtonStyle.Danger)));
   await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
   return channel;
 }
