@@ -38,7 +38,7 @@ type GroupKey = keyof typeof roleChannelGroups;
 const groups: Array<{
   name: string;
   privacy: "public" | GroupKey;
-  channels: Array<{ name: string; type?: ChannelType; topic?: string }>;
+  channels: Array<{ name: string; type?: ChannelType.GuildText | ChannelType.GuildVoice; topic?: string }>;
 }> = [
   {
     name: "📌 LANSTEC | INÍCIO",
