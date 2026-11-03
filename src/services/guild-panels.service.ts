@@ -148,7 +148,7 @@ export async function createPrivateTicket(guild: Guild, member: GuildMember, sub
     if (role) overwrites.push({ id: role.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] });
   }
   const safeName = subject.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 25).replace(/^-|-$/g, "") || "atendimento";
-  const channel = await guild.channels.create({ name: `ticket-${safeName}-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,5)}`, type: ChannelType.GuildText, parent: category?.id, permissionOverwrites: overwrites, reason: "Ticket privado LANSTEC" });
+  const channel = await guild.channels.create({ name: `ticket-${safeName}-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,5)}`, type: ChannelType.GuildText, parent: category?.id ?? null, permissionOverwrites: overwrites, reason: "Ticket privado LANSTEC" });
   const card = new ContainerBuilder().setAccentColor(0x2563eb)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\\n**Assunto:** " + subject))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
