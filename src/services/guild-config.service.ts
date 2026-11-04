@@ -35,3 +35,17 @@ export async function setGuildPanel(guildId: string, panelKey: string, value: { 
   const current = await getGuildRuntimeConfig(guildId);
   await patchGuildRuntimeConfig(guildId, { panels: { ...(current.panels ?? {}), [panelKey]: { ...value, updatedAt: new Date().toISOString() } } });
 }
+
+/** IDs operacionais centralizados; URLs/tokens secretos de webhooks não são persistidos. */
+export async function setGuildChannel(guildId:string,key:string,channelId:string,actorId?:string):Promise<void>{
+ const current=await getGuildRuntimeConfig(guildId);
+ await patchGuildRuntimeConfig(guildId,{channels:{...((current.channels as Record<string,string>)??{}),[key]:channelId}},actorId);
+}
+export async function setGuildWebhook(guildId:string,key:string,value:{id:string;channelId?:string;name?:string},actorId?:string):Promise<void>{
+ const current=await getGuildRuntimeConfig(guildId);
+ await patchGuildRuntimeConfig(guildId,{webhooks:{...(current.webhooks??{}),[key]:{...value,createdAt:new Date().toISOString()}}},actorId);
+}
+export async function removeGuildWebhook(guildId:string,key:string,actorId?:string):Promise<void>{
+ const current=await getGuildRuntimeConfig(guildId);const webhooks={...(current.webhooks??{})};delete webhooks[key];
+ await patchGuildRuntimeConfig(guildId,{webhooks},actorId);
+}
