@@ -84,8 +84,8 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
       thread = archived.threads.find(item => item.name === "📌・Central de sugestões");
       if (thread) await thread.setArchived(false);
     }
-    let existing: Message | undefined;
-    if (thread) existing = (await thread.fetchStarterMessage().catch(() => undefined)) ?? undefined;
+    let existing: Message<boolean> | null | undefined;
+    if (thread) existing = await thread.fetchStarterMessage().catch(() => undefined);
     if (existing && existing.author.id !== guild.client.user?.id) existing = undefined;
     if (!existing) {
       thread = undefined;
