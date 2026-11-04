@@ -145,3 +145,4 @@ export async function publishGuildPanels(guild: Guild) {
       .addSectionComponents(infoSection("📄", "Documentos e contratos", "Esta documentação é informativa e não substitui propostas, contratos, políticas ou termos formais."))
       .addSeparatorComponents(panelDivider())
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • DOCUMENTAÇÃO • TECNOLOGIA COM RESPONSABILIDADE")));
+}
