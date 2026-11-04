@@ -49,12 +49,12 @@ function normalizeChannelName(value: string): string {
 
 function resolvePanelChannel(guild: Guild, key: string) {
   const aliases: Record<string, string[]> = {
-    suggestions: ["sugestoes", "centraldesugestoes"],
+    suggestions: ["sugestoes", "centraldesugestoes"],\n    logs: ["logs", "logs do bot", "logsdobot"],
     support: ["centraldeatendimento"],
     tickets: ["abrirticket", "tickets"],
     rules: ["regras", "regraseseguranca"],
     docs: ["documentacao", "documentacaopublica"],
-    work: ["tarefaseprojetos", "tarefasprojetos"],
+    work: ["tarefaseprojetos", "tarefasprojetos"],\n    docs: ["documentacao", "documentacaopublica"],
   };
   const candidates = aliases[key] ?? [];
   return guild.channels.cache.find(channel => {
