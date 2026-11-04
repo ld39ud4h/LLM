@@ -29,7 +29,7 @@ function normalizeComponentJSON(value: unknown): unknown {
     const record = value as Record<string, unknown>;
     return Object.fromEntries(
       Object.keys(record)
-        .filter(key => key !== "id")
+        .filter(key => key !== "id" && record[key] !== undefined && record[key] !== null)
         .sort()
         .map(key => [key, normalizeComponentJSON(record[key])]),
     );
