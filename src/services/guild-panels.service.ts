@@ -80,7 +80,16 @@ export async function publishGuildPanels(guild: Guild) {
   await upsertPanel(guild, CHANNEL_NAMES.rules, PANEL_IDS.rules, () =>
     new ContainerBuilder().setAccentColor(0xf59e0b)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\n**1. Respeito:** cordialidade.\n**2. Privacidade:** não publique dados pessoais, credenciais ou informações de clientes.\n**3. Segurança:** testes somente com autorização e escopo definido.\n**4. Conteúdo:** sem spam, golpes ou malware.\n**5. Organização:** use os canais corretamente.\n**6. Denúncias:** procure a moderação ou abra ticket.\n-# PANEL:rules")));
-  await upsertPanel(guild, CHANNEL_NAMES.work, "PANEL:work", () =>\n    new ContainerBuilder().setAccentColor(0x7c3aed)\n      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🗂️ Gestão pessoal • LANSTEC\\nOrganize suas entregas, acompanhe pendências e mantenha projetos sob controle.\\n\\n**Privacidade:** os registros são individuais. Cada pessoa acessa somente suas próprias tarefas e projetos."))\n      .addSeparatorComponents(new SeparatorBuilder().setSpacing(2))\n      .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(\n        new ButtonBuilder().setCustomId("lanstec:work:tasks").setLabel("Minhas tarefas").setEmoji("📋").setStyle(ButtonStyle.Primary),\n        new ButtonBuilder().setCustomId("lanstec:work:projects").setLabel("Meus projetos").setEmoji("🗃️").setStyle(ButtonStyle.Success),\n      ))\n      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • WORKSPACE • PANEL:work")));\n  await upsertPanel(guild, CHANNEL_NAMES.docs, PANEL_IDS.docs, () =>
+  await upsertPanel(guild, CHANNEL_NAMES.work, "PANEL:work", () =>
+    new ContainerBuilder().setAccentColor(0x7c3aed)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🗂️ Gestão pessoal • LANSTEC\nOrganize suas entregas, acompanhe pendências e mantenha projetos sob controle.\n\n**Privacidade:** os registros são individuais. Cada pessoa acessa somente suas próprias tarefas e projetos."))
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(2))
+      .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("lanstec:work:tasks").setLabel("Minhas tarefas").setEmoji("📋").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("lanstec:work:projects").setLabel("Meus projetos").setEmoji("🗃️").setStyle(ButtonStyle.Success),
+      ))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • WORKSPACE • PANEL:work")));
+  await upsertPanel(guild, CHANNEL_NAMES.docs, PANEL_IDS.docs, () =>
     new ContainerBuilder().setAccentColor(0x0891b2)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação pública LANSTEC\n**Serviços:** consultoria de TI, segurança da informação e conscientização.\n**Avaliações:** somente com autorização e escopo acordado.\n**Atendimento:** abra ticket para suporte.\n**Privacidade:** não compartilhe dados sensíveis em canais públicos.\n\nEsta documentação não substitui contratos, propostas ou políticas formais.\n-# PANEL:docs")));
 }
