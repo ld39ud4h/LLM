@@ -273,6 +273,12 @@ export const setupLanstecCommand = {
       await interaction.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("🧹 **Apagando estrutura…**\nPreparando canais e cargos."))], flags: MessageFlags.IsComponentsV2 });
 
       for (const channel of [...guild.channels.cache.values()]) {
+        // Discord interaction webhooks are bound to the command's original channel.
+        // Deleting it invalidates followUp/editReply and produces API 10003.
+        if (channel.id === interaction.channelId) {
+          console.info("Preserving /setup_lanstec invocation channel until interaction completes", { channelId: channel.id, mode });
+          continue;
+        }
         try {
           await channel.delete(
             resetChatsOnly ? "Reset somente canais /setup_lanstec" : "Reset /setup_lanstec",
