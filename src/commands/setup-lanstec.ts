@@ -156,6 +156,11 @@ async function ensureChannel(guild: Guild, category: CategoryChannel, definition
       && (channel.type === type || (requestedType === ChannelType.GuildAnnouncement && channel.type === ChannelType.GuildText)),
   );
   if (existing) {
+    if (requestedType === ChannelType.GuildAnnouncement && type === ChannelType.GuildAnnouncement && existing.type === ChannelType.GuildText) {
+      const converted = await existing.setType(ChannelType.GuildAnnouncement, "Conversão automática para canal de anúncios LANSTEC");
+      if (definition.topic) await converted.setTopic(definition.topic);
+      return converted;
+    }
     if ("setTopic" in existing && definition.topic) await existing.setTopic(definition.topic);
     return existing;
   }
