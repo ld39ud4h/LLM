@@ -52,7 +52,8 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   const panelKey = customId.replace("PANEL:", "");
   const config = await getGuildRuntimeConfig(guild.id);
   const saved = config.panels?.[panelKey];
-  const desired = build();\n  const payload = { components: [desired], flags: [MessageFlags.IsComponentsV2] as const };
+  const desired = build();
+  const payload = { components: [desired], flags: [MessageFlags.IsComponentsV2] as const };
   let existing: Message | undefined;
   if (saved?.channelId === channel.id && saved.messageId) {
     existing = await channel.messages.fetch(saved.messageId).catch(() => undefined);
