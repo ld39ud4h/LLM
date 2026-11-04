@@ -247,19 +247,12 @@ export async function publishGuildPanels(guild: Guild) {
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • ORGANIZAÇÃO E PRODUTIVIDADE")));
   await upsertPanel(guild, CHANNEL_NAMES.docs, PANEL_IDS.docs, () =>
     new ContainerBuilder().setAccentColor(0x0891b2)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação LANSTEC\nInformações institucionais, orientações e boas práticas."))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação LANSTEC\\nInformações institucionais, orientações e boas práticas."))
       .addSeparatorComponents(panelDivider())
-      .addSectionComponents(infoSection("🏢", "Sobre a LANSTEC", "Tecnologia, consultoria de TI e segurança da informação com foco em confiança, responsabilidade e clareza."))
-      .addSeparatorComponents(panelDivider())
-      .addSectionComponents(infoSection("💻", "Serviços", "Consultoria de TI, orientação em segurança digital, conscientização e apoio técnico conforme escopo contratado."))
-      .addSeparatorComponents(panelDivider())
+      .addSectionComponents(infoSection("🏢", "Sobre e serviços", "Consultoria de TI e segurança da informação com foco em confiança, responsabilidade e clareza. Apoio técnico e conscientização conforme escopo contratado."))
       .addSectionComponents(infoSection("🔎", "Avaliações de segurança", "Toda avaliação depende de autorização formal, escopo, limites e condições previamente acordados."))
-      .addSeparatorComponents(panelDivider())
-      .addSectionComponents(infoSection("🧑‍💼", "Atendimento", "Para suporte, dúvidas ou solicitações, utilize a Central de tickets e converse diretamente com a equipe."))
-      .addSeparatorComponents(panelDivider())
-      .addSectionComponents(infoSection("🔒", "Confidencialidade", "Não compartilhe informações sensíveis em canais públicos. Dados de clientes devem ser tratados com sigilo."))
-      .addSeparatorComponents(panelDivider())
-      .addSectionComponents(infoSection("📄", "Documentos e contratos", "Esta documentação é informativa e não substitui propostas, contratos, políticas ou termos formais."))
+      .addSectionComponents(infoSection("🧑‍💼", "Atendimento e sigilo", "Para suporte, utilize a Central de tickets. Não compartilhe senhas, tokens ou dados sensíveis em canais públicos."))
+      .addSectionComponents(infoSection("📄", "Documentos e contratos", "Conteúdo informativo; não substitui propostas, contratos, políticas ou termos formais."))
       .addSeparatorComponents(panelDivider())
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • DOCUMENTAÇÃO • TECNOLOGIA COM RESPONSABILIDADE")));
 }
