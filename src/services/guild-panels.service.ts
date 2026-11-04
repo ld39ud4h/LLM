@@ -55,7 +55,7 @@ function resolvePanelChannel(guild: Guild, key: string) {
     tickets: ["abrirticket", "tickets"],
     rules: ["regras", "regraseseguranca"],
     docs: ["documentacao", "documentacaopublica"],
-    work: ["tarefaseprojetos", "tarefasprojetos"],
+    work: ["tarefaseprojetos", "tarefasprojetos", "tarefaseprojetos"],
   };
   const candidates = aliases[key] ?? [];
   return guild.channels.cache.find(channel => {
