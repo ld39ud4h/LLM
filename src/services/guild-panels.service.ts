@@ -45,7 +45,7 @@ function componentsAreEqual(current: Message, desired: ContainerBuilder): boolea
 }
 
 function normalizeChannelName(value: string): string {
-  return value.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 }
 
 async function resolvePanelChannel(guild: Guild, key: string) {
@@ -254,7 +254,7 @@ export async function publishGuildPanels(guild: Guild) {
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • ORGANIZAÇÃO E PRODUTIVIDADE")));
   await upsertPanel(guild, CHANNEL_NAMES.docs, PANEL_IDS.docs, () =>
     new ContainerBuilder().setAccentColor(0x0891b2)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação LANSTEC\\nInformações institucionais, orientações e boas práticas."))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação LANSTEC\nInformações institucionais, orientações e boas práticas."))
       .addSeparatorComponents(panelDivider())
       .addSectionComponents(infoSection("🏢", "Sobre e serviços", "Consultoria de TI e segurança da informação com foco em confiança, responsabilidade e clareza. Apoio técnico e conscientização conforme escopo contratado."))
       .addSectionComponents(infoSection("🔎", "Avaliações de segurança", "Toda avaliação depende de autorização formal, escopo, limites e condições previamente acordados."))
@@ -350,7 +350,7 @@ export function buildTicketModal() {
 export async function createPrivateTicket(guild: Guild, member: GuildMember, subject: string, details: string, parentChannelId?: string) {
   const parent = parentChannelId ? guild.channels.cache.get(parentChannelId) : guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.tickets);
   if (!parent || parent.type !== ChannelType.GuildText) throw new Error("Canal de texto pai para tópicos privados não encontrado.");
-  const safeName = subject.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 35).replace(/^-|-$/g, "") || "atendimento";
+  const safeName = subject.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 35).replace(/^-|-$/g, "") || "atendimento";
   const thread = await parent.threads.create({ name: "🎫-" + safeName + "-" + (member.user.username.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) || "cliente"), type: ChannelType.PrivateThread, autoArchiveDuration: 1440, invitable: false, reason: "Ticket privado LANSTEC" });
   await thread.members.add(member.id);
   const staffRoleNames = ["Administrador", "Gerente", "Suporte técnico", "Coordenador técnico"];
