@@ -15,7 +15,9 @@ import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bo
 import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest, buildTicketModal, createPrivateTicket } from "./services/guild-panels.service.js";
 import { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
 import { handleInternalApi } from "./api/internal-api.js";
-import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, persistTicketMessage } from "./services/guild-data.service.js";\nimport { listTasks,listProjects,createTask,updateTask,deleteTask,createProject,updateProject,deleteProject } from "./services/workspace.service.js";\nimport { workHome,taskList,projectList,taskDetail,projectDetail,taskModal,projectModal } from "./services/workspace-panel.service.js";
+import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, persistTicketMessage } from "./services/guild-data.service.js";
+import { listTasks,listProjects,createTask,updateTask,deleteTask,createProject,updateProject,deleteProject } from "./services/workspace.service.js";
+import { workHome,taskList,projectList,taskDetail,projectDetail,taskModal,projectModal } from "./services/workspace-panel.service.js";
 
 const healthServer = createServer(async (request, response) => {
   if (await handleInternalApi(request, response)) return;
