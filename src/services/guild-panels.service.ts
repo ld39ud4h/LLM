@@ -202,7 +202,7 @@ export async function publishSupportRequest(guild: Guild, member: GuildMember, s
 export async function sendWelcome(member: GuildMember) {
   const channel = member.guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.welcome);
   if (!channel || !channel.isTextBased() || !("send" in channel)) return;
-  const channelId = (name: string) => member.guild.channels.cache.find(c => c.name === name)?.id ?? "";
+  const channelId = (name: string) => member.guild.channels.cache.find(c => c.name === name || c.name.endsWith("・" + name))?.id ?? "";
   const card = new ContainerBuilder().setAccentColor(ACCENT)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("# ✦ Bem-vindo(a) à LANSTEC Tecnologia"))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("Olá, <@" + member.id + ">! Que bom ter você por aqui.\n\nSomos uma comunidade de tecnologia, inovação e segurança digital."))
