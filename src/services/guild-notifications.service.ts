@@ -6,7 +6,7 @@ export type OperationalChannel = "status-e-alertas" | "logs-do-bot" | "alertas-d
 export async function sendGuildNotice(client: Client, guildId: string, channelName: OperationalChannel, title: string, detail: string, color = 0x06b6d4): Promise<void> {
   try {
     const guild = await client.guilds.fetch(guildId);
-    const channel = guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === channelName);
+    const channel = findTextChannel(guild, channelName);
     if (!channel || !channel.isTextBased() || !("send" in channel)) {
       logger.warn({ guildId, channelName, feature: "guild-notice" }, "Operational channel not found");
       return;
@@ -27,7 +27,7 @@ export async function broadcastStartup(client: Client): Promise<void> {
   const commandCount = 9;
 
   for (const guild of client.guilds.cache.values()) {
-    const statusChannel = guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === "status-e-alertas");
+    const statusChannel = findTextChannel(guild, "status-e-alertas");
     if (statusChannel?.isTextBased() && "send" in statusChannel) {
       const card = new ContainerBuilder().setAccentColor(0x22c55e)
         .addSectionComponents(new SectionBuilder()
@@ -41,10 +41,10 @@ export async function broadcastStartup(client: Client): Promise<void> {
             .setDescription("Avatar do bot")))
         .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
         .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# LANSTEC • ${new Date().toLocaleString("pt-BR")}`));
-      await statusChannel.send({ components: [card], flags: [MessageFlags.IsComponentsV2] });
+      await statusChannel.send({ components: [card], flags: [MessageFlags.IsComponentsV2] }).catch(error => logger.warn({ err: error, guildId: guild.id, channelId: statusChannel.id }, "Could not publish startup status"));
     }
 
-    const logsChannel = guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === "logs-do-bot");
+    const logsChannel = findTextChannel(guild, "logs-do-bot");
     if (logsChannel?.isTextBased() && "send" in logsChannel) {
       const botMember = await guild.members.fetch(bot.id).catch(() => null);
       const card = new ContainerBuilder().setAccentColor(0x06b6d4)
@@ -67,7 +67,7 @@ export async function broadcastStartup(client: Client): Promise<void> {
             .setDescription("Avatar do bot")))
         .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
         .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# LANSTEC • ${new Date().toLocaleString("pt-BR")}`));
-      await logsChannel.send({ components: [card], flags: [MessageFlags.IsComponentsV2] });
+      await logsChannel.send({ components: [card], flags: [MessageFlags.IsComponentsV2] }).catch(error => logger.warn({ err: error, guildId: guild.id, channelId: logsChannel.id }, "Could not publish startup log"));
     }
   }
 }
