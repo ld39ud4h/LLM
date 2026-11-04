@@ -1,4 +1,4 @@
-import { Client, ChannelType, ContainerBuilder, TextDisplayBuilder, MessageFlags } from "discord.js";
+import { Client, ChannelType, ContainerBuilder, TextDisplayBuilder, MessageFlags, SectionBuilder, ThumbnailBuilder, SeparatorBuilder, SeparatorSpacingSize } from "discord.js";\nimport { commands } from "../commands/index.js";
 import { logger } from "../config/logger.js";
 
 export type OperationalChannel = "status-e-alertas" | "logs-do-bot" | "alertas-de-seguranca";
