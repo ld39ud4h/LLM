@@ -79,7 +79,7 @@ export async function publishOperationalLog(
 
 function infoSection(emoji: string, heading: string, body: string) {
   return new SectionBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${emoji} ${heading}**\\n${body}`))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${emoji} ${heading}**\n${body}`))
     .setThumbnailAccessory(new ThumbnailBuilder({ media: { url: `https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/${emoji.codePointAt(0)?.toString(16)}.png` }, description: heading }));
 }
 function panelDivider() {
@@ -113,7 +113,7 @@ export async function publishGuildPanels(guild: Guild) {
       )));
   await upsertPanel(guild, CHANNEL_NAMES.rules, PANEL_IDS.rules, () =>
     new ContainerBuilder().setAccentColor(0xf59e0b)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\\nUma comunidade segura começa com atitudes responsáveis."))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📜 Regras e segurança\nUma comunidade segura começa com atitudes responsáveis."))
       .addSeparatorComponents(panelDivider())
       .addSectionComponents(infoSection("🤝", "Respeito e convivência", "Trate todos com cordialidade. Não toleramos assédio, discriminação, ameaças ou perseguição."))
       .addSeparatorComponents(panelDivider())
@@ -127,9 +127,10 @@ export async function publishGuildPanels(guild: Guild) {
       .addSeparatorComponents(panelDivider())
       .addSectionComponents(infoSection("📣", "Denúncias e moderação", "Se identificar um problema, procure a equipe ou abra um ticket privado."))
       .addSeparatorComponents(panelDivider())
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • COMUNIDADE SEGURA • RESPEITO, ÉTICA E RESPONSABILIDADE")));  await upsertPanel(guild, CHANNEL_NAMES.docs, PANEL_IDS.docs, () =>
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • COMUNIDADE SEGURA • RESPEITO, ÉTICA E RESPONSABILIDADE")));
+  await upsertPanel(guild, CHANNEL_NAMES.docs, PANEL_IDS.docs, () =>
     new ContainerBuilder().setAccentColor(0x0891b2)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação LANSTEC\\nInformações institucionais, orientações e boas práticas."))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação LANSTEC\nInformações institucionais, orientações e boas práticas."))
       .addSeparatorComponents(panelDivider())
       .addSectionComponents(infoSection("🏢", "Sobre a LANSTEC", "Tecnologia, consultoria de TI e segurança da informação com foco em confiança, responsabilidade e clareza."))
       .addSeparatorComponents(panelDivider())
