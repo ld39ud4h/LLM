@@ -79,6 +79,11 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
     const forum = channel;
     const active = await forum.threads.fetchActive();
     let thread = active.threads.find(item => item.name === "📌・Central de sugestões");
+    if (!thread) {
+      const archived = await forum.threads.fetchArchived({ type: "public" });
+      thread = archived.threads.find(item => item.name === "📌・Central de sugestões");
+      if (thread) await thread.setArchived(false);
+    }
     let existing: Message | undefined;
     if (thread) existing = await thread.fetchStarterMessage().catch(() => undefined);
     if (existing && existing.author.id !== guild.client.user?.id) existing = undefined;
