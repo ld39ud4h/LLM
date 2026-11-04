@@ -122,7 +122,8 @@ const groups: Array<{ name: string; privacy: "public" | GroupKey; channels: Chan
 async function ensureRole(guild: Guild, definition: (typeof roleDefinitions)[number]): Promise<Role> {
   const existing = guild.roles.cache.find((role) => role.name === definition.name);
   if (existing) {
-    const permissionsMatch = definition.permissions ? existing.permissions.bitfield === definition.permissions.reduce((bits, permission) => bits | permission, 0n) : true;\n    if (existing.color !== definition.color || !permissionsMatch) {\n      await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });\n    }
+    const permissionsMatch = definition.permissions ? existing.permissions.bitfield === definition.permissions.reduce((bits, permission) => bits | permission, 0n) : true;
+    if (existing.color !== definition.color || !permissionsMatch) {\n      await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });\n    }
     return existing;
   }
   return guild.roles.create({
@@ -211,7 +212,7 @@ export const setupLanstecCommand = {
 
     if (reset || resetChatsOnly) {
       const confirmationText = resetChatsOnly
-        ? "# ⚠️ Resetchatsonly\\n**Todos os canais e categorias serão excluídos**"
+        ? "# ⚠️ Resetchatsonly\n**Todos os canais e categorias serão excluídos**"
         : "# ⚠️ Reset\\n**Todos os canais e categorias serão excluídos**, inclusive os que não são LANSTEC. Cargos administrativos (Administrador/Gerente e cargos com permissão Administrator), membros e @everyone serão preservados. Outros cargos personalizados poderão ser removidos. Cargos gerenciados por integrações não podem ser removidos.";
       const panel = new ContainerBuilder()
         .setAccentColor(0xdc2626)
