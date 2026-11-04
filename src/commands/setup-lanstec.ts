@@ -190,8 +190,8 @@ export const setupLanstecCommand = {
    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# ⚠️ Reset integral\n**Todos os canais, categorias e cargos personalizados do servidor serão excluídos**, inclusive os que não são LANSTEC. Membros e @everyone permanecem. Cargos gerenciados por integrações não podem ser removidos."))
    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("setup-lanstec-reset-confirm").setLabel("Apagar tudo e recriar").setStyle(ButtonStyle.Danger),new ButtonBuilder().setCustomId("setup-lanstec-reset-cancel").setLabel("Cancelar").setStyle(ButtonStyle.Secondary)));
-  await interaction.editReply({components:[panel],flags:MessageFlags.IsComponentsV2});
-  try{const msg=await interaction.fetchReply();const c=await msg.awaitMessageComponent({time:60000,filter:i=>i.user.id===interaction.user.id&&i.customId.startsWith("setup-lanstec-reset-")});if(c.customId.endsWith("cancel")){await c.update({content:"Reset cancelado.",components:[]});return;}await c.deferUpdate();}
+  const msg=await interaction.followUp({components:[panel],flags:MessageFlags.Ephemeral|MessageFlags.IsComponentsV2});
+  try{const c=await msg.awaitMessageComponent({time:60000,filter:i=>i.user.id===interaction.user.id&&i.customId.startsWith("setup-lanstec-reset-")});if(c.customId.endsWith("cancel")){await c.update({content:"Reset cancelado.",components:[]});await interaction.editReply("Reset cancelado.");return;}await c.deferUpdate();}
   catch{await interaction.editReply({content:"Confirmação expirada; nada foi apagado.",components:[]});return;}
   await interaction.editReply({content:"🧹 Apagando estrutura…",components:[]});
   for(const ch of [...guild.channels.cache.values()])try{await ch.delete("Reset integral /setup_lanstec");}catch(e){logger.warn({err:e,id:ch.id},"Falha ao excluir canal no reset");}
