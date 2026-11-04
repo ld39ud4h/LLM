@@ -77,6 +77,7 @@ async function resolvePanelChannel(guild: Guild, key: string) {
   }
   const channels = await guild.channels.fetch().catch(() => guild.channels.cache);
   return [...channels.values()].find(channel => {
+    if (!channel) return false;
     const normalized = normalizeChannelName(channel.name);
     return candidates.some(alias => normalized === alias || normalized.endsWith(alias) || alias.endsWith(normalized));
   });
