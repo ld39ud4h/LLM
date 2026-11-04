@@ -172,15 +172,6 @@ function panelDivider() {
 }
 
 export async function publishGuildPanels(guild: Guild) {
-  await upsertPanel(guild, CHANNEL_NAMES.suggestions, PANEL_IDS.suggestions, () =>
-    new ContainerBuilder().setAccentColor(ACCENT)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 💡 Central de sugestões\n**Sua ideia pode melhorar a LANSTEC.**\n\nEnvie sugestões de melhorias, novos recursos, eventos ou mudanças na comunidade. A equipe avaliará cada contribuição."))
-      .addSeparatorComponents(new SeparatorBuilder().setSpacing(2))
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("**Como funciona**\n1. Clique em *Enviar sugestão*.\n2. Descreva sua ideia com clareza.\n3. A comunidade poderá votar e a equipe acompanhará."))
-      .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId("lanstec:suggestion:open").setLabel("Enviar sugestão").setEmoji("💡").setStyle(ButtonStyle.Primary),
-      ))
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • PARTICIPAÇÃO DA COMUNIDADE")));
   await upsertPanel(guild, CHANNEL_NAMES.support, PANEL_IDS.support, () =>
     new ContainerBuilder().setAccentColor(0x0f766e)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🛟 Central de atendimento\nPrecisa de ajuda? Abra uma solicitação para a equipe LANSTEC.\n\n**Antes de abrir:** não publique senhas, tokens, dados pessoais ou informações confidenciais em canais públicos."))
@@ -213,6 +204,15 @@ export async function publishGuildPanels(guild: Guild) {
       .addSectionComponents(infoSection("📣", "Denúncias e moderação", "Se identificar um problema, procure a equipe ou abra um ticket privado."))
       .addSeparatorComponents(panelDivider())
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • COMUNIDADE SEGURA • RESPEITO, ÉTICA E RESPONSABILIDADE")));
+  await upsertPanel(guild, CHANNEL_NAMES.work, "PANEL:work", () =>
+    new ContainerBuilder().setAccentColor(0x7c3aed)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🗂️ Tarefas e projetos\\nOrganize suas atividades e acompanhe seus projetos em um espaço privado."))
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(2))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("**Seu espaço pessoal**\\nCrie tarefas, acompanhe status e prazos, e mantenha seus projetos organizados. Cada pessoa acessa somente seus próprios registros."))
+      .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("lanstec:work:open").setLabel("Abrir meu espaço de trabalho").setEmoji("🗂️").setStyle(ButtonStyle.Primary),
+      ))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • ORGANIZAÇÃO E PRODUTIVIDADE")));
   await upsertPanel(guild, CHANNEL_NAMES.docs, PANEL_IDS.docs, () =>
     new ContainerBuilder().setAccentColor(0x0891b2)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 📚 Documentação LANSTEC\nInformações institucionais, orientações e boas práticas."))
