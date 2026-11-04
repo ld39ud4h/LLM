@@ -14,6 +14,7 @@ const PANEL_IDS = {
   tickets: "PANEL:tickets",
   rules: "PANEL:rules",
   docs: "PANEL:docs",
+  work: "PANEL:work",
 };
 
 function hasCustomId(message: Message, customId: string): boolean {
@@ -53,7 +54,7 @@ function resolvePanelChannel(guild: Guild, key: string) {
     support: ["centraldeatendimento"],
     tickets: ["abrirticket", "tickets"],
     rules: ["regras", "regraseseguranca"],
-    docs: ["documentacao", "documentacaopublica"],
+    docs: ["documentacao", "documentacaopublica", "documentacaopublica"],
     work: ["tarefaseprojetos", "tarefasprojetos"],\n    docs: ["documentacao", "documentacaopublica"],
   };
   const candidates = aliases[key] ?? [];
