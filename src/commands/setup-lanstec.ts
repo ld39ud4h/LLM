@@ -147,10 +147,13 @@ async function ensureCategory(guild: Guild, name: string, overwrites: OverwriteR
 
 async function ensureChannel(guild: Guild, category: CategoryChannel, definition: ChannelDefinition): Promise<GuildBasedChannel> {
   const requestedType = definition.type ?? ChannelType.GuildText;
-  // Discord only permits announcement channels in servers with Community/NEWS enabled.
+  // Announcement and Stage channels require Community; use ordinary text/voice otherwise.
+  const communityEnabled = guild.features.includes("COMMUNITY");
   const type = requestedType === ChannelType.GuildAnnouncement && !guild.features.includes("NEWS")
     ? ChannelType.GuildText
-    : requestedType;
+    : requestedType === ChannelType.GuildStageVoice && !communityEnabled
+      ? ChannelType.GuildVoice
+      : requestedType;
   const existing = guild.channels.cache.find(
     (channel) => channel.parentId === category.id && channel.name === definition.name
       && (channel.type === type || (requestedType === ChannelType.GuildAnnouncement && channel.type === ChannelType.GuildText)),
@@ -197,7 +200,7 @@ export const setupLanstecCommand = {
     }
 
     const everyone = guild.roles.everyone;
-    let createdCategories = 0, createdChannels = 0, reusedCategories = 0, reusedChannels = 0, announcementFallbacks = 0;
+    let createdCategories = 0, createdChannels = 0, reusedCategories = 0, reusedChannels = 0, announcementFallbacks = 0, stageFallbacks = 0;
     for (const group of groups) {
       const overwrites: OverwriteResolvable[] = [];
       if (group.privacy !== "public") {
@@ -234,6 +237,7 @@ export const setupLanstecCommand = {
           && (c.type === expectedType || (expectedType === ChannelType.GuildAnnouncement && c.type === ChannelType.GuildText)));
         const channel = await ensureChannel(guild, category, def);
         if (expectedType === ChannelType.GuildAnnouncement && channel.type === ChannelType.GuildText) announcementFallbacks++;
+        if (expectedType === ChannelType.GuildStageVoice && channel.type === ChannelType.GuildVoice) stageFallbacks++;
         if (existed) reusedChannels++; else createdChannels++;
       }
     }
@@ -245,8 +249,8 @@ export const setupLanstecCommand = {
       `• ${createdChannels} canais criados; ${reusedChannels} já existentes.`,
       `• ${roleDefinitions.length} cargos verificados/criados.`,
       "",
-      `Tipos aplicados: ${announcementFallbacks ? "anúncios (Text — servidor sem Community habilitada)" : "anúncios (Announcement)"}, sugestões/ideias/problemas (Forum), conversa (Text), salas (Voice) e palco (Stage).`,
-      ...(announcementFallbacks ? ["ℹ️ Para transformar os canais de anúncios em Announcement, habilite Community no servidor e execute /setup_lanstec novamente."] : []),
+      `Tipos aplicados: ${announcementFallbacks ? "anúncios (Text — Community desativada)" : "anúncios (Announcement)"}, sugestões/ideias/problemas (Forum), conversa (Text), salas (Voice) e ${stageFallbacks ? "palco (Voice — Community desativada)" : "palco (Stage")}.`,
+      ...(announcementFallbacks || stageFallbacks ? ["ℹ️ Para usar Announcement e Stage, habilite Community nas configurações do servidor e execute /setup_lanstec novamente."] : []),
       "⚠️ Revise os cargos e permissões antes de publicar dados internos. O comando não apaga canais antigos nem migra mensagens.",
       "Painéis de atendimento/sugestões e boas-vindas foram sincronizados.",
     ].join("\n"));
