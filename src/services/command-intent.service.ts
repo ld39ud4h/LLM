@@ -49,5 +49,5 @@ export function routeCommandIntent(prompt: string): string | null {
   const commandName = slash?.[1]?.replace(/^\//, "");
   const command = commands.find((item) => item.data.name === commandName);
   if (!command) return "Não identifiquei qual comando você quer. Diga o nome ou peça **'liste os comandos'**.";
-  return `Entendi: **/${commandName}** — ${docs[commandName] ?? command.data.description}.\n\nPara segurança e compatibilidade com o Discord, comandos Slash são executados como interações nativas. Eu consigo orientar e abrir os fluxos por linguagem natural quando há uma ação interna disponível; para este comando, use **/${commandName}** no Discord.`;
+  return `Entendi: **/${commandName}** — ${docs[command.data.name] ?? command.data.description}.\n\nPara segurança e compatibilidade com o Discord, comandos Slash são executados como interações nativas. Eu consigo orientar e abrir os fluxos por linguagem natural quando há uma ação interna disponível; para este comando, use **/${commandName}** no Discord.`;
 }
