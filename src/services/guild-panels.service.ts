@@ -80,7 +80,7 @@ export async function publishOperationalLog(
 function infoSection(emoji: string, heading: string, body: string) {
   return new SectionBuilder()
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${emoji} ${heading}**\n${body}`))
-    .setThumbnailAccessory(new ThumbnailBuilder({ media: { url: `https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/${emoji.codePointAt(0)?.toString(16)}.png` }, description: heading }));
+    .setThumbnailAccessory(new ThumbnailBuilder({ media: { url: `https://cdn.jsdelivr.net/npm/twemoji@15.1.0/assets/72x72/${Array.from(emoji).map(char => char.codePointAt(0)!.toString(16)).filter(code => code !== "fe0f").join("-")}.png` }, description: heading }));
 }
 function panelDivider() {
   return new SeparatorBuilder().setDivider(true).setSpacing(2);
