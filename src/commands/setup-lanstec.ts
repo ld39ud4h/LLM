@@ -121,7 +121,10 @@ const groups: Array<{ name: string; privacy: "public" | GroupKey; channels: Chan
 
 async function ensureRole(guild: Guild, definition: (typeof roleDefinitions)[number]): Promise<Role> {
   const existing = guild.roles.cache.find((role) => role.name === definition.name);
-  if (existing) return existing;
+  if (existing) {
+    await existing.edit({ color: definition.color, permissions: definition.permissions ?? [] }, "Sincronização de cargo LANSTEC");
+    return existing;
+  }
   return guild.roles.create({
     name: definition.name,
     color: definition.color,
@@ -180,22 +183,22 @@ async function ensureChannel(guild: Guild, category: CategoryChannel, definition
 
 export const setupLanstecCommand = {
  data:new SlashCommandBuilder().setName("setup_lanstec").setDescription("Cria/sincroniza ou recria a estrutura LANSTEC.")
- .addStringOption(o=>o.setName("modo").setDescription("Vazio = seletivo; reset = apagar canais e cargos").addChoices({name:"Reset integral",value:"reset"}))
+ .addStringOption(o=>o.setName("modo").setDescription("Vazio = seletivo; reset = recriar estrutura; resetchatsonly = preservar cargos").addChoices({name:"Reset integral (preserva cargos administrativos)",value:"reset"},{name:"Reset somente canais (preserva todos os cargos)",value:"resetchatsonly"}))
  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false),
  async execute(interaction:ChatInputCommandInteraction){
  const guild=interaction.guild;if(!guild){await interaction.reply({content:"Somente em servidor.",ephemeral:true});return;}
- const reset=interaction.options.getString("modo")==="reset";await interaction.deferReply({ephemeral:true});
- if(reset){
+ const mode=interaction.options.getString("modo")??"selective";const reset=mode==="reset";const resetChatsOnly=mode==="resetchatsonly";await interaction.deferReply({ephemeral:true});
+ if(reset||resetChatsOnly){
   const panel=new ContainerBuilder().setAccentColor(0xdc2626)
-   .addTextDisplayComponents(new TextDisplayBuilder().setContent("# ⚠️ Reset integral\n**Todos os canais, categorias e cargos personalizados do servidor serão excluídos**, inclusive os que não são LANSTEC. Membros e @everyone permanecem. Cargos gerenciados por integrações não podem ser removidos."))
+   .addTextDisplayComponents(new TextDisplayBuilder().setContent("# ⚠️ Reset integral\n**Todos os canais e categorias serão excluídos**, inclusive os que não são LANSTEC. Cargos administrativos (Administrador/Gerente e cargos com permissão Administrator), membros e @everyone serão preservados. Outros cargos personalizados poderão ser removidos. Cargos gerenciados por integrações não podem ser removidos."))
    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-   .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("setup-lanstec-reset-confirm").setLabel("Apagar tudo e recriar").setStyle(ButtonStyle.Danger),new ButtonBuilder().setCustomId("setup-lanstec-reset-cancel").setLabel("Cancelar").setStyle(ButtonStyle.Secondary)));
+   .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("setup-lanstec-reset-confirm").setLabel("Apagar canais e recriar").setStyle(ButtonStyle.Danger),new ButtonBuilder().setCustomId("setup-lanstec-reset-cancel").setLabel("Cancelar").setStyle(ButtonStyle.Secondary)));
   const msg=await interaction.followUp({components:[panel],flags:MessageFlags.Ephemeral|MessageFlags.IsComponentsV2});
   try{const c=await msg.awaitMessageComponent({time:60000,filter:i=>i.user.id===interaction.user.id&&i.customId.startsWith("setup-lanstec-reset-")});if(c.customId.endsWith("cancel")){await c.update({content:"Reset cancelado.",components:[]});await interaction.editReply("Reset cancelado.");return;}await c.deferUpdate();}
   catch{await interaction.editReply({content:"Confirmação expirada; nada foi apagado.",components:[]});return;}
   await interaction.editReply({content:"🧹 Apagando estrutura…",components:[]});
-  for(const ch of [...guild.channels.cache.values()])try{await ch.delete("Reset integral /setup_lanstec");}catch(e){logger.warn({err:e,id:ch.id},"Falha ao excluir canal no reset");}
-  const me=await guild.members.fetchMe();for(const role of [...guild.roles.cache.values()].sort((a,b)=>b.position-a.position)){if(role.id===guild.id||role.managed||role.id===me.roles.highest.id)continue;try{await role.delete("Reset integral /setup_lanstec");}catch(e){logger.warn({err:e,id:role.id},"Falha ao excluir cargo no reset");}}
+  for(const ch of [...guild.channels.cache.values()])try{await ch.delete(resetChatsOnly?"Reset somente canais /setup_lanstec":"Reset /setup_lanstec");}catch(e){logger.warn({err:e,id:ch.id},"Falha ao excluir canal no reset");}
+  if(reset){const me=await guild.members.fetchMe();for(const role of [...guild.roles.cache.values()].sort((a,b)=>b.position-a.position)){const administrative=role.permissions.has(PermissionFlagsBits.Administrator)||["Administrador","Gerente"].includes(role.name);if(role.id===guild.id||role.managed||role.id===me.roles.highest.id||administrative)continue;try{await role.delete("Reset /setup_lanstec (cargos administrativos preservados)");}catch(e){logger.warn({err:e,id:role.id},"Falha ao excluir cargo no reset");}}
  }else{
   // B: remove only the known LANSTEC categories (and their contents); leaves unrelated server channels untouched.
   const names=new Set(groups.map(g=>g.name));for(const cat of guild.channels.cache.filter(c=>c.type===ChannelType.GuildCategory&&names.has(c.name)).values()){for(const child of guild.channels.cache.filter(c=>c.parentId===cat.id).values())try{await child.delete("Reconstrução seletiva LANSTEC");}catch{}try{await cat.delete("Reconstrução seletiva LANSTEC");}catch{}}
@@ -206,8 +209,8 @@ export const setupLanstecCommand = {
  for(const group of groups){const ow:OverwriteResolvable[]=[];if(group.privacy!=="public"){ow.push({id:everyone.id,deny:[PermissionFlagsBits.ViewChannel]});for(const rn of [...roleChannelGroups[group.privacy],"Bot / sistemas"]){const r=roles.get(rn);if(!r)continue;ow.push({id:r.id,allow:[PermissionFlagsBits.ViewChannel,PermissionFlagsBits.ReadMessageHistory,PermissionFlagsBits.SendMessages,PermissionFlagsBits.SendMessagesInThreads,PermissionFlagsBits.CreatePublicThreads,PermissionFlagsBits.CreatePrivateThreads,PermissionFlagsBits.Connect,PermissionFlagsBits.Speak]});}}
  const old=guild.channels.cache.find(c=>c.type===ChannelType.GuildCategory&&c.name===group.name),cat=await ensureCategory(guild,group.name,ow);categoryIds[group.name]=cat.id;if(old)rc++;else cc++;
  for(const d of group.channels){const type=d.type??ChannelType.GuildText,ex=guild.channels.cache.some(c=>c.parentId===cat.id&&c.name===d.name&&(c.type===type||(type===ChannelType.GuildAnnouncement&&c.type===ChannelType.GuildText))),ch=await ensureChannel(guild,cat,d);channelIds[d.name]=ch.id;if(type===ChannelType.GuildAnnouncement&&ch.type===ChannelType.GuildText)af++;if(type===ChannelType.GuildStageVoice&&ch.type===ChannelType.GuildVoice)sf++;if(ex)rn++;else cn++;}}
- await patchGuildRuntimeConfig(guild.id,{channels:channelIds,panels:{},webhooks:{},setup:{version:2,mode:reset?"reset":"selective",categoryIds,channelIds,roleIds:Object.fromEntries([...roles].map(([n,r])=>[n,r.id])),syncedAt:new Date().toISOString(),syncedBy:interaction.user.id}},interaction.user.id);
+ await patchGuildRuntimeConfig(guild.id,{channels:channelIds,panels:{},webhooks:{},setup:{version:2,mode:reset?"reset":resetChatsOnly?"resetchatsonly":"selective",categoryIds,channelIds,roleIds:Object.fromEntries([...roles].map(([n,r])=>[n,r.id])),syncedAt:new Date().toISOString(),syncedBy:interaction.user.id}},interaction.user.id);
  await publishGuildPanels(guild);
- await interaction.editReply(["✅ **LANSTEC — setup concluído**",`• ${cc} categorias criadas / ${rc} reutilizadas; ${cn} canais criados / ${rn} sincronizados.`,`• ${roles.size} cargos; ${Object.keys(channelIds).length} IDs de canais persistidos no Supabase.`,"• Painéis republicados; cache de referências antigas de painéis/webhooks zerado.",reset?"⚠️ Reset integral executado.":"🛡️ Modo B: canais/categorias externos preservados; categorias LANSTEC reconstruídas.",af||sf?"ℹ️ Community desativada: alguns tipos foram convertidos para Text/Voice.":"Tipos de canais aplicados conforme configuração."].join("\n"));
+ await interaction.editReply(["✅ **LANSTEC — setup concluído**",`• ${cc} categorias criadas / ${rc} reutilizadas; ${cn} canais criados / ${rn} sincronizados.`,`• ${roles.size} cargos; ${Object.keys(channelIds).length} IDs de canais persistidos no Supabase.`,"• Painéis republicados; cache de referências antigas de painéis/webhooks zerado.",reset?"⚠️ Reset executado; cargos administrativos preservados.":resetChatsOnly?"🧩 Resetchatsonly: todos os canais/categorias recriados; todos os cargos preservados e sincronizados.":"🛡️ Modo seletivo: canais/categorias externos preservados; categorias LANSTEC reconstruídas.",af||sf?"ℹ️ Community desativada: alguns tipos foram convertidos para Text/Voice.":"Tipos de canais aplicados conforme configuração."].join("\n"));
  }
 };
