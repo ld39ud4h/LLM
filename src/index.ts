@@ -15,7 +15,7 @@ import { initializeAIProvider, refreshAIProviderCatalog } from "./services/ai-bo
 import { initializeGuildPanels, sendWelcome, buildSuggestionModal, buildSupportModal, publishSuggestion, publishSupportRequest, buildTicketModal, createPrivateTicket } from "./services/guild-panels.service.js";
 import { broadcastStartup, sendGuildNotice } from "./services/guild-notifications.service.js";
 import { handleInternalApi } from "./api/internal-api.js";
-import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, persistTicketMessage } from "./services/guild-data.service.js";
+import { saveTicket, saveSuggestion, saveSupport, closeTicket, claimTicket, persistTicketMessage } from "./services/guild-data.service.js";\nimport { listTasks,listProjects,createTask,updateTask,deleteTask,createProject,updateProject,deleteProject } from "./services/workspace.service.js";\nimport { workHome,taskList,projectList,taskDetail,projectDetail,taskModal,projectModal } from "./services/workspace-panel.service.js";
 
 const healthServer = createServer(async (request, response) => {
   if (await handleInternalApi(request, response)) return;
@@ -307,4 +307,41 @@ client.on(Events.MessageCreate, async message => {
  if(!message.guild||!message.channel.isTextBased()||!("id" in message.channel))return;
  try { await persistTicketMessage({channelId:message.channel.id,messageId:message.id,authorId:message.author.id,authorTag:message.author.tag,content:message.content,attachments:message.attachments.map(a=>({name:a.name,url:a.url,contentType:a.contentType,size:a.size})),createdAt:message.createdAt.toISOString()}); }
  catch(error){logger.warn({err:error,channelId:message.channel.id,messageId:message.id},"Ticket transcript persistence failed");}
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+ const id=interaction.customId;
+ if(!interaction.isButton()&&!interaction.isStringSelectMenu()&&!interaction.isModalSubmit())return;
+ if(!id.startsWith("lanstec:work:"))return;
+ try{
+  if(!interaction.guildId){await interaction.reply({content:"Este painel funciona dentro de um servidor.",ephemeral:true});return;}
+  const guildId=interaction.guildId,userId=interaction.user.id;
+  if(interaction.isButton()&&id==="lanstec:work:open"){await interaction.reply(workHome());return;}
+  if(interaction.isButton()&&id==="lanstec:work:home"){await interaction.reply(workHome());return;}
+  if(interaction.isButton()&&id==="lanstec:work:tasks"||interaction.isButton()&&id==="lanstec:work:tasks"){await interaction.reply(taskList(await listTasks(guildId,userId)));return;}
+  if(interaction.isButton()&&id==="lanstec:work:projects"){await interaction.reply(projectList(await listProjects(guildId,userId)));return;}
+  if(interaction.isButton()&&id==="lanstec:work:task:create"){await interaction.showModal(taskModal("create"));return;}
+  if(interaction.isButton()&&id==="lanstec:work:project:create"){await interaction.showModal(projectModal("create"));return;}
+  if(interaction.isStringSelectMenu()&&id==="lanstec:work:task:select"){const t=(await listTasks(guildId,userId)).find(x=>x.id===interaction.values[0]);if(!t){await interaction.reply({content:"Tarefa não encontrada ou não pertence a você.",ephemeral:true});return;}await interaction.reply(taskDetail(t));return;}
+  if(interaction.isStringSelectMenu()&&id==="lanstec:work:project:select"){const p=(await listProjects(guildId,userId)).find(x=>x.id===interaction.values[0]);if(!p){await interaction.reply({content:"Projeto não encontrado ou não pertence a você.",ephemeral:true});return;}await interaction.reply(projectDetail(p));return;}
+  const taskAction=id.match(/^lanstec:work:task:(edit|status|delete):([0-9a-f-]+)$/i);
+  if(interaction.isButton()&&taskAction){const [,action,taskId]=taskAction;const t=(await listTasks(guildId,userId)).find(x=>x.id===taskId);if(!t){await interaction.reply({content:"Tarefa não encontrada ou não pertence a você.",ephemeral:true});return;}
+   if(action==="edit"){await interaction.showModal(taskModal("edit",t));return;}
+   if(action==="status"){const next=t.status==="todo"?"doing":t.status==="doing"?"done":"todo";await updateTask(guildId,userId,t.id,{status:next});await interaction.reply(taskList(await listTasks(guildId,userId)));return;}
+   await deleteTask(guildId,userId,t.id);await interaction.reply(taskList(await listTasks(guildId,userId)));return;
+  }
+  const projectAction=id.match(/^lanstec:work:project:(edit|status|delete):([0-9a-f-]+)$/i);
+  if(interaction.isButton()&&projectAction){const [,action,projectId]=projectAction;const p=(await listProjects(guildId,userId)).find(x=>x.id===projectId);if(!p){await interaction.reply({content:"Projeto não encontrado ou não pertence a você.",ephemeral:true});return;}
+   if(action==="edit"){await interaction.showModal(projectModal("edit",p));return;}
+   if(action==="status"){const next=p.status==="active"?"paused":p.status==="paused"?"done":"active";await updateProject(guildId,userId,p.id,{status:next});await interaction.reply(projectList(await listProjects(guildId,userId)));return;}
+   await deleteProject(guildId,userId,p.id);await interaction.reply(projectList(await listProjects(guildId,userId)));return;
+  }
+  const taskSubmit=id.match(/^lanstec:work:task:submit:(create|edit)(?::([0-9a-f-]+))?$/i);
+  if(interaction.isModalSubmit()&&taskSubmit){const [,mode,taskId]=taskSubmit;const title=interaction.fields.getTextInputValue("title").trim(),description=interaction.fields.getTextInputValue("description").trim(),due=interaction.fields.getTextInputValue("due").trim();if(due&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(due)){await interaction.reply({content:"Prazo inválido. Use AAAA-MM-DD.",ephemeral:true});return;}
+   if(mode==="create")await createTask({guildId,userId,title,description,priority:"normal",dueDate:due||undefined});else if(taskId){const own=(await listTasks(guildId,userId)).some(x=>x.id===taskId);if(!own){await interaction.reply({content:"Tarefa não pertence a você.",ephemeral:true});return;}await updateTask(guildId,userId,taskId,{title,description,due_date:due||null});}
+   await interaction.reply(taskList(await listTasks(guildId,userId)));return;
+  }
+  const projectSubmit=id.match(/^lanstec:work:project:submit:(create|edit)(?::([0-9a-f-]+))?$/i);
+  if(interaction.isModalSubmit()&&projectSubmit){const [,mode,projectId]=projectSubmit;const name=interaction.fields.getTextInputValue("name").trim(),description=interaction.fields.getTextInputValue("description").trim();if(mode==="create")await createProject({guildId,userId,name,description});else if(projectId){const own=(await listProjects(guildId,userId)).some(x=>x.id===projectId);if(!own){await interaction.reply({content:"Projeto não pertence a você.",ephemeral:true});return;}await updateProject(guildId,userId,projectId,{name,description});}await interaction.reply(projectList(await listProjects(guildId,userId)));return;}
+ }catch(error){logger.error({err:error,feature:"workspace",userId:interaction.user.id,guildId:interaction.guildId},"Workspace interaction failed");if(interaction.isRepliable()&&!interaction.replied&&!interaction.deferred)await interaction.reply({content:"Não consegui concluir esta ação. Tente novamente.",ephemeral:true}).catch(()=>undefined);}
 });
