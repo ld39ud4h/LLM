@@ -22,6 +22,27 @@ function hasCustomId(message: Message, customId: string): boolean {
   return scan(message.components.map((component) => component.toJSON() as any));
 }
 
+
+function normalizeComponentJSON(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeComponentJSON);
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.keys(record)
+        .filter(key => key !== "id")
+        .sort()
+        .map(key => [key, normalizeComponentJSON(record[key])]),
+    );
+  }
+  return value;
+}
+
+function componentsAreEqual(current: Message, desired: ContainerBuilder): boolean {
+  const currentJSON = normalizeComponentJSON(current.components.map(component => component.toJSON()));
+  const desiredJSON = normalizeComponentJSON([desired.toJSON()]);
+  return JSON.stringify(currentJSON) === JSON.stringify(desiredJSON);
+}
+
 async function upsertPanel(guild: Guild, channelName: string, customId: string, build: () => ContainerBuilder) {
   const channel = guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === channelName);
   if (!channel || !channel.isTextBased() || !("messages" in channel)) {
@@ -31,7 +52,7 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   const panelKey = customId.replace("PANEL:", "");
   const config = await getGuildRuntimeConfig(guild.id);
   const saved = config.panels?.[panelKey];
-  const payload = { components: [build()], flags: [MessageFlags.IsComponentsV2] as const };
+  const desired = build();\n  const payload = { components: [desired], flags: [MessageFlags.IsComponentsV2] as const };
   let existing: Message | undefined;
   if (saved?.channelId === channel.id && saved.messageId) {
     existing = await channel.messages.fetch(saved.messageId).catch(() => undefined);
