@@ -213,7 +213,7 @@ export const setupLanstecCommand = {
     if (reset || resetChatsOnly) {
       const confirmationText = resetChatsOnly
         ? "# ⚠️ Resetchatsonly\n**Todos os canais e categorias serão excluídos**"
-        : "# ⚠️ Reset\\n**Todos os canais e categorias serão excluídos**, inclusive os que não são LANSTEC. Cargos administrativos (Administrador/Gerente e cargos com permissão Administrator), membros e @everyone serão preservados. Outros cargos personalizados poderão ser removidos. Cargos gerenciados por integrações não podem ser removidos.";
+        : "# ⚠️ Reset\n**Todos os canais e categorias serão excluídos**, inclusive os que não são LANSTEC. Cargos administrativos (Administrador/Gerente e cargos com permissão Administrator), membros e @everyone serão preservados. Outros cargos personalizados poderão ser removidos. Cargos gerenciados por integrações não podem ser removidos.";
       const panel = new ContainerBuilder()
         .setAccentColor(0xdc2626)
         .addTextDisplayComponents(new TextDisplayBuilder().setContent(confirmationText))
@@ -258,7 +258,7 @@ export const setupLanstecCommand = {
         return;
       }
 
-      await interaction.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("🧹 **Apagando estrutura…**\\nPreparando canais e cargos."))], flags: MessageFlags.IsComponentsV2 });
+      await interaction.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("🧹 **Apagando estrutura…**\nPreparando canais e cargos."))], flags: MessageFlags.IsComponentsV2 });
 
       for (const channel of [...guild.channels.cache.values()]) {
         try {
@@ -399,7 +399,7 @@ export const setupLanstecCommand = {
       interaction.user.id,
     );
 
-    await publishOperationalLog(guild, "🏗️ Estrutura criada com sucesso", `**Categorias:** ${categoriesCreated} criadas / ${categoriesReused} mantidas\\n**Canais:** ${channelsCreated} criados / ${channelsSynced} mantidos\\n**Cargos:** ${roles.size} sincronizados`, "create");\n    await publishOperationalLog(guild, "🔄 Sincronizando painéis", "Publicando e verificando os painéis LANSTEC em seus canais de destino.", "update");\n    await publishGuildPanels(guild);
+    await publishOperationalLog(guild, "🏗️ Estrutura criada com sucesso", `**Categorias:** ${categoriesCreated} criadas / ${categoriesReused} mantidas\n**Canais:** ${channelsCreated} criados / ${channelsSynced} mantidos\n**Cargos:** ${roles.size} sincronizados`, "create");\n    await publishOperationalLog(guild, "🔄 Sincronizando painéis", "Publicando e verificando os painéis LANSTEC em seus canais de destino.", "update");\n    await publishGuildPanels(guild);
     const summary = [
       "✅ **LANSTEC — setup concluído**",
       `• ${categoriesCreated} categorias criadas / ${categoriesReused} reutilizadas; ${channelsCreated} canais criados / ${channelsSynced} sincronizados.`,
@@ -413,7 +413,7 @@ export const setupLanstecCommand = {
       announcementsFallback || stageFallback
         ? "ℹ️ Community desativada: alguns tipos foram convertidos para Text/Voice."
         : "Tipos de canais aplicados conforme configuração.",
-    ].join("\\n");
+    ].join("\n");
     await interaction.editReply({ components: [new ContainerBuilder().setAccentColor(0x16a34a).addTextDisplayComponents(new TextDisplayBuilder().setContent(summary))], flags: MessageFlags.IsComponentsV2 });
   },
 };
