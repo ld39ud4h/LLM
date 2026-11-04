@@ -149,7 +149,9 @@ async function ensureCategory(guild: Guild, name: string, overwrites: OverwriteR
     (channel): channel is CategoryChannel => channel.type === ChannelType.GuildCategory && channel.name === name,
   );
   if (existing) {
-    await existing.permissionOverwrites.set(overwrites, "Sincronização de permissões LANSTEC");
+    const desired = overwrites.map((entry) => { const item = entry as any; return { id: String(item.id), type: item.type ?? 0, allow: permissionBits(item.allow).toString(), deny: permissionBits(item.deny).toString() }; }).sort((a,b) => a.id.localeCompare(b.id));
+    const current = existing.permissionOverwrites.cache.map(item => ({ id: item.id, type: item.type, allow: item.allow.bitfield.toString(), deny: item.deny.bitfield.toString() })).sort((a,b) => a.id.localeCompare(b.id));
+    if (JSON.stringify(current) !== JSON.stringify(desired)) await existing.permissionOverwrites.set(overwrites, "Sincronização de permissões LANSTEC");
     return existing;
   }
   return guild.channels.create({
