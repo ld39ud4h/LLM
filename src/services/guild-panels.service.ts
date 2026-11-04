@@ -53,7 +53,8 @@ function resolvePanelChannel(guild: Guild, key: string) {
     support: ["centraldeatendimento"],
     tickets: ["abrirticket", "tickets"],
     rules: ["regras", "regraseseguranca"],
-    docs: ["documentacao", "documentacaopublica"],\n    work: ["tarefaseprojetos", "tarefasprojetos"],
+    docs: ["documentacao", "documentacaopublica"],
+    work: ["tarefaseprojetos", "tarefasprojetos"],
   };
   const candidates = aliases[key] ?? [];
   return guild.channels.cache.find(channel => {
@@ -221,9 +222,9 @@ export async function publishGuildPanels(guild: Guild) {
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • COMUNIDADE SEGURA • RESPEITO, ÉTICA E RESPONSABILIDADE")));
   await upsertPanel(guild, CHANNEL_NAMES.work, "PANEL:work", () =>
     new ContainerBuilder().setAccentColor(0x7c3aed)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🗂️ Tarefas e projetos\\nOrganize suas atividades e acompanhe seus projetos em um espaço privado."))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🗂️ Tarefas e projetos\nOrganize suas atividades e acompanhe seus projetos em um espaço privado."))
       .addSeparatorComponents(new SeparatorBuilder().setSpacing(2))
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent("**Seu espaço pessoal**\\nCrie tarefas, acompanhe status e prazos, e mantenha seus projetos organizados. Cada pessoa acessa somente seus próprios registros."))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent("**Seu espaço pessoal**\nCrie tarefas, acompanhe status e prazos, e mantenha seus projetos organizados. Cada pessoa acessa somente seus próprios registros."))
       .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("lanstec:work:open").setLabel("Abrir meu espaço de trabalho").setEmoji("🗂️").setStyle(ButtonStyle.Primary),
       ))
