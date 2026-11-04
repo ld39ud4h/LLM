@@ -44,15 +44,15 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   if (existing) {
     await existing.edit(payload);
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: existing.id, customId });
-    logger.info({ guildId: guild.id, panelKey, channelId: channel.id, messageId: existing.id, action: "updated" }, "Guild panel reconciled");
+    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: existing.id, action: "updated", operation: "panel_update" }, "Painel atualizado");\n    await publishOperationalLog(guild, "📝 Painel atualizado", `**Painel:** ${panelKey}\\n**Canal:** <#${channel.id}>\\n**Mensagem:** ${existing.id}`, "update");
   } else {
     const created = await channel.send(payload);
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: created.id, customId });
-    logger.info({ guildId: guild.id, panelKey, channelId: channel.id, messageId: created.id, action: "created" }, "Guild panel reconciled");
+    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: created.id, action: "created", operation: "panel_create" }, "Painel criado");\n    await publishOperationalLog(guild, "🆕 Painel criado", `**Painel:** ${panelKey}\\n**Canal:** <#${channel.id}>\\n**Mensagem:** ${created.id}`, "create");
   }
 }
 
-export async function publishGuildPanels(guild: Guild) {
+export async function publishOperationalLog(guild: Guild, title: string, details: string, kind: "create" | "update" | "delete" | "ticket" | "error" = "update") {\n  const channel = guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.logs);\n  if (!channel || !channel.isTextBased() || !("send" in channel)) return;\n  const colors = { create: 0x16a34a, update: 0x0891b2, delete: 0xdc2626, ticket: 0x7c3aed, error: 0xef4444 };\n  const card = new ContainerBuilder().setAccentColor(colors[kind]).addTextDisplayComponents(new TextDisplayBuilder().setContent("# " + title)).addTextDisplayComponents(new TextDisplayBuilder().setContent(details)).addSeparatorComponents(new SeparatorBuilder().setSpacing(1)).addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • AUDITORIA • " + new Date().toLocaleString("pt-BR")));\n  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { parse: [] } }).catch(error => logger.warn({ err: error, guildId: guild.id, feature: "operational-log" }, "Could not publish operational log"));\n}\n\nexport async function publishGuildPanels(guild: Guild) {
   await upsertPanel(guild, CHANNEL_NAMES.suggestions, PANEL_IDS.suggestions, () =>
     new ContainerBuilder().setAccentColor(ACCENT)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 💡 Central de sugestões\n**Sua ideia pode melhorar a LANSTEC.**\n\nEnvie sugestões de melhorias, novos recursos, eventos ou mudanças na comunidade. A equipe avaliará cada contribuição."))
@@ -163,25 +163,24 @@ export function buildTicketModal() {
     );
 }
 
-export async function createPrivateTicket(guild: Guild, member: GuildMember, subject: string, details: string) {
-  const category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === "🤝 LANSTEC | CLIENTES");
-  const staffNames = ["Administrador", "Gerente", "Suporte técnico", "Coordenador técnico"];
-  const overwrites: any[] = [
-    { id: guild.roles.everyone.id, deny: ["ViewChannel"] },
-    { id: member.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "AttachFiles"] },
-    ...(guild.client.user ? [{ id: guild.client.user.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] }] : []),
-  ];
-  for (const name of staffNames) {
-    const role = guild.roles.cache.find(r => r.name === name);
-    if (role) overwrites.push({ id: role.id, allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"] });
+export async function createPrivateTicket(guild: Guild, member: GuildMember, subject: string, details: string, parentChannelId?: string) {
+  const parent = parentChannelId ? guild.channels.cache.get(parentChannelId) : guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.tickets);
+  if (!parent || parent.type !== ChannelType.GuildText) throw new Error("Canal de texto pai para tópicos privados não encontrado.");
+  const safeName = subject.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 35).replace(/^-|-$/g, "") || "atendimento";
+  const thread = await parent.threads.create({ name: `🎫-${safeName}-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0,8) || "cliente"}`, type: ChannelType.PrivateThread, autoArchiveDuration: 1440, invitable: false, reason: "Ticket privado LANSTEC" });
+  await thread.members.add(member.id);
+  const staffRoles = guild.roles.cache.filter(role => ["Administrador", "Gerente", "Suporte técnico", "Coordenador técnico"].includes(role.name));
+  const allMembers = await guild.members.fetch().catch(() => guild.members.cache);
+  for (const staff of allMembers.filter(m => m.roles.cache.some(role => staffRoles.has(role.id))).values()) {
+    if (staff.id !== member.id) await thread.members.add(staff.id).catch(error => logger.warn({ err: error, userId: staff.id, threadId: thread.id }, "Could not add staff to ticket"));
   }
-  const safeName = subject.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 25).replace(/^-|-$/g, "") || "atendimento";
-  const channel = await guild.channels.create({ name: `ticket-${safeName}-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,5)}`, type: ChannelType.GuildText, parent: category?.id ?? null, permissionOverwrites: overwrites, reason: "Ticket privado LANSTEC" });
   const card = new ContainerBuilder().setAccentColor(0x2563eb)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\n**Assunto:** " + subject))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\\n**Assunto:** " + subject))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\nA equipe responderá neste canal. Não envie senhas ou tokens."))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\\nA equipe responderá neste tópico privado. Não envie senhas ou tokens."))
     .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("lanstec:ticket:claim").setLabel("Assumir").setEmoji("🧑‍💻").setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId("lanstec:ticket:close").setLabel("Encerrar").setEmoji("🔒").setStyle(ButtonStyle.Danger)));
-  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
-  return channel;
+  await thread.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
+  logger.info({ guildId: guild.id, ticketId: thread.id, requesterId: member.id, parentChannelId: parent.id, operation: "ticket_create" }, "Ticket privado criado");
+  await publishOperationalLog(guild, "🎫 Ticket aberto", `**Solicitante:** <@${member.id}>\\n**Assunto:** ${subject}\\n**Tópico:** <#${thread.id}>`, "ticket");
+  return thread;
 }
