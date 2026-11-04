@@ -122,7 +122,7 @@ const groups: Array<{ name: string; privacy: "public" | GroupKey; channels: Chan
 async function ensureRole(guild: Guild, definition: (typeof roleDefinitions)[number]): Promise<Role> {
   const existing = guild.roles.cache.find((role) => role.name === definition.name);
   if (existing) {
-    await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });
+    const permissionsMatch = definition.permissions ? existing.permissions.bitfield.equals(definition.permissions.reduce((bits, permission) => bits | permission, 0n)) : true;\n    if (existing.color !== definition.color || !permissionsMatch) {\n      await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });\n    }
     return existing;
   }
   return guild.roles.create({
@@ -168,7 +168,7 @@ async function ensureChannel(guild: Guild, category: CategoryChannel, definition
       if (definition.topic) await converted.setTopic(definition.topic);
       return converted;
     }
-    if ("setTopic" in existing && definition.topic) await existing.setTopic(definition.topic);
+    if ("setTopic" in existing && definition.topic && "topic" in existing && existing.topic !== definition.topic) await existing.setTopic(definition.topic);
     return existing;
   }
   return guild.channels.create({
