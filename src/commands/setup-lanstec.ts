@@ -7,8 +7,9 @@ import {
   Role,
   CategoryChannel,
   GuildBasedChannel,
-  OverwriteResolvable,
+  OverwriteResolvable, ButtonBuilder, ButtonStyle, ActionRowBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags,
 } from "discord.js";
+import { getGuildRuntimeConfig, patchGuildRuntimeConfig } from "../services/guild-config.service.js";
 import { publishGuildPanels } from "../services/guild-panels.service.js";
 
 const roleDefinitions = [
@@ -178,81 +179,35 @@ async function ensureChannel(guild: Guild, category: CategoryChannel, definition
 }
 
 export const setupLanstecCommand = {
-  data: new SlashCommandBuilder()
-    .setName("setup_lanstec")
-    .setDescription("Cria/sincroniza a estrutura profissional da LANSTEC Tecnologia.")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .setDMPermission(false),
-  async execute(interaction: ChatInputCommandInteraction) {
-    const guild = interaction.guild;
-    if (!guild) {
-      await interaction.reply({ content: "Este comando só funciona dentro de um servidor.", ephemeral: true });
-      return;
-    }
-
-    await interaction.deferReply({ ephemeral: true });
-    const roles = new Map<string, Role>();
-    for (const definition of roleDefinitions) roles.set(definition.name, await ensureRole(guild, definition));
-    const botRole = roles.get("Bot / sistemas");
-    if (botRole) {
-      const botMember = await guild.members.fetchMe();
-      if (!botMember.roles.cache.has(botRole.id)) await botMember.roles.add(botRole, "Acesso do bot aos canais internos LANSTEC");
-    }
-
-    const everyone = guild.roles.everyone;
-    let createdCategories = 0, createdChannels = 0, reusedCategories = 0, reusedChannels = 0, announcementFallbacks = 0, stageFallbacks = 0;
-    for (const group of groups) {
-      const overwrites: OverwriteResolvable[] = [];
-      if (group.privacy !== "public") {
-        overwrites.push({ id: everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
-        const allowedRoles = [...roleChannelGroups[group.privacy], "Bot / sistemas"];
-        for (const roleName of allowedRoles) {
-          const role = roles.get(roleName);
-          if (!role) continue;
-          const isBot = roleName === "Bot / sistemas";
-          overwrites.push({
-            id: role.id,
-            allow: [
-              PermissionFlagsBits.ViewChannel,
-              PermissionFlagsBits.ReadMessageHistory,
-              ...(isBot ? [PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages] : [
-                PermissionFlagsBits.SendMessages,
-                PermissionFlagsBits.SendMessagesInThreads,
-                PermissionFlagsBits.CreatePublicThreads,
-                PermissionFlagsBits.CreatePrivateThreads,
-                PermissionFlagsBits.Connect,
-                PermissionFlagsBits.Speak,
-              ]),
-            ],
-          });
-        }
-      }
-
-      const oldCategory = guild.channels.cache.find((c) => c.type === ChannelType.GuildCategory && c.name === group.name);
-      const category = await ensureCategory(guild, group.name, overwrites);
-      if (oldCategory) reusedCategories++; else createdCategories++;
-      for (const def of group.channels) {
-        const expectedType = def.type ?? ChannelType.GuildText;
-        const existed = guild.channels.cache.some((c) => c.parentId === category.id && c.name === def.name
-          && (c.type === expectedType || (expectedType === ChannelType.GuildAnnouncement && c.type === ChannelType.GuildText)));
-        const channel = await ensureChannel(guild, category, def);
-        if (expectedType === ChannelType.GuildAnnouncement && channel.type === ChannelType.GuildText) announcementFallbacks++;
-        if (expectedType === ChannelType.GuildStageVoice && channel.type === ChannelType.GuildVoice) stageFallbacks++;
-        if (existed) reusedChannels++; else createdChannels++;
-      }
-    }
-
-    await publishGuildPanels(guild);
-    await interaction.editReply([
-      "✅ **LANSTEC Tecnologia — estrutura sincronizada!**",
-      `• ${createdCategories} categorias criadas; ${reusedCategories} sincronizadas.`,
-      `• ${createdChannels} canais criados; ${reusedChannels} já existentes.`,
-      `• ${roleDefinitions.length} cargos verificados/criados.`,
-      "",
-      `Tipos aplicados: ${announcementFallbacks ? "anúncios (Text — Community desativada)" : "anúncios (Announcement)"}, sugestões/ideias/problemas (Forum), conversa (Text), salas (Voice) e ${stageFallbacks ? "palco (Voice — Community desativada)" : "palco (Stage")}.`,
-      ...(announcementFallbacks || stageFallbacks ? ["ℹ️ Para usar Announcement e Stage, habilite Community nas configurações do servidor e execute /setup_lanstec novamente."] : []),
-      "⚠️ Revise os cargos e permissões antes de publicar dados internos. O comando não apaga canais antigos nem migra mensagens.",
-      "Painéis de atendimento/sugestões e boas-vindas foram sincronizados.",
-    ].join("\n"));
-  },
+ data:new SlashCommandBuilder().setName("setup_lanstec").setDescription("Cria/sincroniza ou recria a estrutura LANSTEC.")
+ .addStringOption(o=>o.setName("modo").setDescription("Vazio = seletivo; reset = apagar canais e cargos").addChoices({name:"Reset integral",value:"reset"}))
+ .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false),
+ async execute(interaction:ChatInputCommandInteraction){
+ const guild=interaction.guild;if(!guild){await interaction.reply({content:"Somente em servidor.",ephemeral:true});return;}
+ const reset=interaction.options.getString("modo")==="reset";await interaction.deferReply({ephemeral:true});
+ if(reset){
+  const panel=new ContainerBuilder().setAccentColor(0xdc2626)
+   .addTextDisplayComponents(new TextDisplayBuilder().setContent("# ⚠️ Reset integral\n**Todos os canais, categorias e cargos personalizados do servidor serão excluídos**, inclusive os que não são LANSTEC. Membros e @everyone permanecem. Cargos gerenciados por integrações não podem ser removidos."))
+   .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+   .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("setup-lanstec-reset-confirm").setLabel("Apagar tudo e recriar").setStyle(ButtonStyle.Danger),new ButtonBuilder().setCustomId("setup-lanstec-reset-cancel").setLabel("Cancelar").setStyle(ButtonStyle.Secondary)));
+  await interaction.editReply({components:[panel],flags:MessageFlags.IsComponentsV2});
+  try{const msg=await interaction.fetchReply();const c=await msg.awaitMessageComponent({time:60000,filter:i=>i.user.id===interaction.user.id&&i.customId.startsWith("setup-lanstec-reset-")});if(c.customId.endsWith("cancel")){await c.update({content:"Reset cancelado.",components:[]});return;}await c.deferUpdate();}
+  catch{await interaction.editReply({content:"Confirmação expirada; nada foi apagado.",components:[]});return;}
+  await interaction.editReply({content:"🧹 Apagando estrutura…",components:[]});
+  for(const ch of [...guild.channels.cache.values()])try{await ch.delete("Reset integral /setup_lanstec");}catch(e){logger.warn({err:e,id:ch.id},"Falha ao excluir canal no reset");}
+  const me=await guild.members.fetchMe();for(const role of [...guild.roles.cache.values()].sort((a,b)=>b.position-a.position)){if(role.id===guild.id||role.managed||role.id===me.roles.highest.id)continue;try{await role.delete("Reset integral /setup_lanstec");}catch(e){logger.warn({err:e,id:role.id},"Falha ao excluir cargo no reset");}}
+ }else{
+  // B: remove only the known LANSTEC categories (and their contents); leaves unrelated server channels untouched.
+  const names=new Set(groups.map(g=>g.name));for(const cat of guild.channels.cache.filter(c=>c.type===ChannelType.GuildCategory&&names.has(c.name)).values()){for(const child of guild.channels.cache.filter(c=>c.parentId===cat.id).values())try{await child.delete("Reconstrução seletiva LANSTEC");}catch{}try{await cat.delete("Reconstrução seletiva LANSTEC");}catch{}}
+ }
+ const roles=new Map<string,Role>();for(const d of roleDefinitions)roles.set(d.name,await ensureRole(guild,d));
+ const botRole=roles.get("Bot / sistemas");if(botRole){const me=await guild.members.fetchMe();if(!me.roles.cache.has(botRole.id))await me.roles.add(botRole);}
+ const everyone=guild.roles.everyone;let cc=0,rc=0,cn=0,rn=0,af=0,sf=0;const categoryIds:Record<string,string>={},channelIds:Record<string,string>={};
+ for(const group of groups){const ow:OverwriteResolvable[]=[];if(group.privacy!=="public"){ow.push({id:everyone.id,deny:[PermissionFlagsBits.ViewChannel]});for(const rn of [...roleChannelGroups[group.privacy],"Bot / sistemas"]){const r=roles.get(rn);if(!r)continue;ow.push({id:r.id,allow:[PermissionFlagsBits.ViewChannel,PermissionFlagsBits.ReadMessageHistory,PermissionFlagsBits.SendMessages,PermissionFlagsBits.SendMessagesInThreads,PermissionFlagsBits.CreatePublicThreads,PermissionFlagsBits.CreatePrivateThreads,PermissionFlagsBits.Connect,PermissionFlagsBits.Speak]});}}
+ const old=guild.channels.cache.find(c=>c.type===ChannelType.GuildCategory&&c.name===group.name),cat=await ensureCategory(guild,group.name,ow);categoryIds[group.name]=cat.id;if(old)rc++;else cc++;
+ for(const d of group.channels){const type=d.type??ChannelType.GuildText,ex=guild.channels.cache.some(c=>c.parentId===cat.id&&c.name===d.name&&(c.type===type||(type===ChannelType.GuildAnnouncement&&c.type===ChannelType.GuildText))),ch=await ensureChannel(guild,cat,d);channelIds[d.name]=ch.id;if(type===ChannelType.GuildAnnouncement&&ch.type===ChannelType.GuildText)af++;if(type===ChannelType.GuildStageVoice&&ch.type===ChannelType.GuildVoice)sf++;if(ex)rn++;else cn++;}}
+ await patchGuildRuntimeConfig(guild.id,{channels:channelIds,panels:{},webhooks:{},setup:{version:2,mode:reset?"reset":"selective",categoryIds,channelIds,roleIds:Object.fromEntries([...roles].map(([n,r])=>[n,r.id])),syncedAt:new Date().toISOString(),syncedBy:interaction.user.id}},interaction.user.id);
+ await publishGuildPanels(guild);
+ await interaction.editReply(["✅ **LANSTEC — setup concluído**",`• ${cc} categorias criadas / ${rc} reutilizadas; ${cn} canais criados / ${rn} sincronizados.`,`• ${roles.size} cargos; ${Object.keys(channelIds).length} IDs de canais persistidos no Supabase.`,"• Painéis republicados; cache de referências antigas de painéis/webhooks zerado.",reset?"⚠️ Reset integral executado.":"🛡️ Modo B: canais/categorias externos preservados; categorias LANSTEC reconstruídas.",af||sf?"ℹ️ Community desativada: alguns tipos foram convertidos para Text/Voice.":"Tipos de canais aplicados conforme configuração."].join("\n"));
+ }
 };
