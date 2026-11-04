@@ -183,7 +183,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.deferred || interaction.replied) await interaction.followUp({ content, ephemeral: true });
       else await interaction.reply({ content, ephemeral: true });
     } catch (replyError) {
-      logger.error({ err: replyError, feature: "discord-command", command: interaction.commandName }, "Failed to send command error response");
+      // A reset may remove the command's channel, invalidating its interaction webhook.
+      logger.error({
+        err: replyError, feature: "discord-command-error-response",
+        command: interaction.commandName, interactionId: interaction.id,
+        guildId: interaction.guildId, channelId: interaction.channelId,
+        deferred: interaction.deferred, replied: interaction.replied,
+      }, "Could not deliver command error response (interaction channel/webhook may be unavailable)");
     }
   }
 });
