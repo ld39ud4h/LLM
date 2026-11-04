@@ -1,5 +1,4 @@
 import { Client, ChannelType, ContainerBuilder, TextDisplayBuilder, MessageFlags, SectionBuilder, ThumbnailBuilder, SeparatorBuilder, SeparatorSpacingSize } from "discord.js";
-import { commands } from "../commands/index.js";
 import { logger } from "../config/logger.js";
 
 export type OperationalChannel = "status-e-alertas" | "logs-do-bot" | "alertas-de-seguranca";
@@ -25,7 +24,7 @@ export async function broadcastStartup(client: Client): Promise<void> {
   const bot = client.user;
   if (!bot) return;
   const panelCount = 5;
-  const commandCount = commands.length;
+  const commandCount = 9;
 
   for (const guild of client.guilds.cache.values()) {
     const statusChannel = guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === "status-e-alertas");
