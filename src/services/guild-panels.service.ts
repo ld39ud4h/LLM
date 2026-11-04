@@ -316,7 +316,10 @@ export async function sendWelcome(member: GuildMember) {
 
 export async function initializeGuildPanels(client: Client) {
   for (const guild of client.guilds.cache.values()) {
-    try { await publishGuildPanels(guild); logger.info({ guildId: guild.id, feature: "panels" }, "Persistent panels synchronized"); }
+    try {
+      await guild.channels.fetch();
+      logger.info({ guildId: guild.id, channelCount: guild.channels.cache.size, feature: "panels" }, "Guild channels loaded; starting panel synchronization");
+      await publishGuildPanels(guild); logger.info({ guildId: guild.id, feature: "panels" }, "Persistent panels synchronized");
     catch (error) { logger.error({ err: error, guildId: guild.id, feature: "panels" }, "Panel initialization failed"); }
   }
 }
