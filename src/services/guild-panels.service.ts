@@ -165,8 +165,8 @@ export function buildSupportModal() {
 }
 
 export async function publishSuggestion(guild: Guild, userId: string, title: string, description: string) {
-  const channel = guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.suggestions);
-  if (!channel || !channel.isTextBased() || !("send" in channel)) throw new Error("Canal de sugestões não encontrado.");
+  const channel = guild.channels.cache.find((c) => c.name === CHANNEL_NAMES.suggestions);
+  if (!channel) throw new Error("Canal de sugestões não encontrado.");
   const card = new ContainerBuilder().setAccentColor(ACCENT)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 💡 " + title))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(description))
@@ -176,7 +176,16 @@ export async function publishSuggestion(guild: Guild, userId: string, title: str
       new ButtonBuilder().setCustomId("lanstec:suggestion:vote:up").setLabel("Apoiar").setEmoji("👍").setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("lanstec:suggestion:vote:down").setLabel("Não apoiar").setEmoji("👎").setStyle(ButtonStyle.Secondary),
     ));
-  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [] } });
+  const payload = { components: [card], flags: [MessageFlags.IsComponentsV2] as const, allowedMentions: { users: [] as string[] } };
+  if (channel.type === ChannelType.GuildForum) {
+    await channel.threads.create({ name: title.slice(0, 100), message: payload, reason: "Nova sugestão da comunidade" });
+    return;
+  }
+  if (channel.isTextBased() && "send" in channel) {
+    await channel.send(payload);
+    return;
+  }
+  throw new Error("O canal de sugestões precisa ser Fórum ou texto.");
 }
 
 export async function publishSupportRequest(guild: Guild, member: GuildMember, subject: string, details: string) {
