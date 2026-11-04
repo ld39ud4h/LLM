@@ -44,11 +44,13 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   if (existing) {
     await existing.edit(payload);
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: existing.id, customId });
-    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: existing.id, action: "updated", operation: "panel_update" }, "Painel atualizado");\n    await publishOperationalLog(guild, "📝 Painel atualizado", `**Painel:** ${panelKey}\\n**Canal:** <#${channel.id}>\\n**Mensagem:** ${existing.id}`, "update");
+    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: existing.id, action: "updated", operation: "panel_update" }, "Painel atualizado");
+    await publishOperationalLog(guild, "📝 Painel atualizado", `**Painel:** ${panelKey}\n**Canal:** <#${channel.id}>\n**Mensagem:** ${existing.id}`, "update");
   } else {
     const created = await channel.send(payload);
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: created.id, customId });
-    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: created.id, action: "created", operation: "panel_create" }, "Painel criado");\n    await publishOperationalLog(guild, "🆕 Painel criado", `**Painel:** ${panelKey}\\n**Canal:** <#${channel.id}>\\n**Mensagem:** ${created.id}`, "create");
+    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: created.id, action: "created", operation: "panel_create" }, "Painel criado");
+    await publishOperationalLog(guild, "🆕 Painel criado", `**Painel:** ${panelKey}\n**Canal:** <#${channel.id}>\n**Mensagem:** ${created.id}`, "create");
   }
 }
 
@@ -198,12 +200,12 @@ export async function createPrivateTicket(guild: Guild, member: GuildMember, sub
     if (staff.id !== member.id) await thread.members.add(staff.id).catch(error => logger.warn({ err: error, userId: staff.id, threadId: thread.id }, "Could not add staff to ticket"));
   }
   const card = new ContainerBuilder().setAccentColor(0x2563eb)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\\n**Assunto:** " + subject))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\n**Assunto:** " + subject))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\\nA equipe responderá neste tópico privado. Não envie senhas ou tokens."))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\nA equipe responderá neste tópico privado. Não envie senhas ou tokens."))
     .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("lanstec:ticket:claim").setLabel("Assumir").setEmoji("🧑‍💻").setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId("lanstec:ticket:close").setLabel("Encerrar").setEmoji("🔒").setStyle(ButtonStyle.Danger)));
   await thread.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
   logger.info({ guildId: guild.id, ticketId: thread.id, requesterId: member.id, parentChannelId: parent.id, operation: "ticket_create" }, "Ticket privado criado");
-  await publishOperationalLog(guild, "🎫 Ticket aberto", `**Solicitante:** <@${member.id}>\\n**Assunto:** ${subject}\\n**Tópico:** <#${thread.id}>`, "ticket");
+  await publishOperationalLog(guild, "🎫 Ticket aberto", `**Solicitante:** <@${member.id}>\n**Assunto:** ${subject}\n**Tópico:** <#${thread.id}>`, "ticket");
   return thread;
 }
