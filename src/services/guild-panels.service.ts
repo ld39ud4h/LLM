@@ -48,15 +48,22 @@ function normalizeChannelName(value: string): string {
   return value.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 }
 
-function resolvePanelChannel(guild: Guild, key: string) {
+async function resolvePanelChannel(guild: Guild, key: string) {
   const aliases: Record<string, string[]> = {
     suggestions: ["sugestoes", "centraldesugestoes"],
     support: ["centraldeatendimento"],
     tickets: ["abrirticket", "tickets"],
     rules: ["regras", "regraseseguranca"],
     docs: ["documentacao", "documentacaopublica"],
-    work: ["tarefaseprojetos", "tarefasprojetos", "tarefaseprojetos"],
+    work: ["tarefaseprojetos", "tarefasprojetos"],
   };
+  // Prefer the exact channel ID persisted by setup; names are only a recovery fallback.
+  const config = await getGuildRuntimeConfig(guild.id);
+  const persistedId = config.channels?.[key] ?? config.setup?.channelIds?.[key];
+  if (persistedId) {
+    const persisted = guild.channels.cache.get(persistedId);
+    if (persisted) return persisted;
+  }
   const candidates = aliases[key] ?? [];
   return guild.channels.cache.find(channel => {
     const normalized = normalizeChannelName(channel.name);
@@ -67,7 +74,7 @@ function resolvePanelChannel(guild: Guild, key: string) {
 async function upsertPanel(guild: Guild, channelName: string, customId: string, build: () => ContainerBuilder) {
   try {
   const panelKey = customId.replace("PANEL:", "");
-  const channel = resolvePanelChannel(guild, panelKey);
+  const channel = await resolvePanelChannel(guild, panelKey);
   if (!channel) {
     logger.warn({ guildId: guild.id, channelName, panelKey }, "Panel destination not found; setup must create its channel");
     return;
