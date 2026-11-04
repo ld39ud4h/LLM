@@ -136,6 +136,14 @@ async function ensureRole(guild: Guild, definition: (typeof roleDefinitions)[num
   });
 }
 
+function permissionBits(value: unknown): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") return BigInt(value);
+  if (typeof value === "string") return BigInt(value || "0");
+  if (Array.isArray(value)) return value.reduce<bigint>((bits, item) => bits | permissionBits(item), 0n);
+  return 0n;
+}
+
 async function ensureCategory(guild: Guild, name: string, overwrites: OverwriteResolvable[]): Promise<CategoryChannel> {
   const existing = guild.channels.cache.find(
     (channel): channel is CategoryChannel => channel.type === ChannelType.GuildCategory && channel.name === name,
