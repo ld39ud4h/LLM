@@ -10,7 +10,7 @@ import {
   OverwriteResolvable, ButtonBuilder, ButtonStyle, ActionRowBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags,
 } from "discord.js";
 import { getGuildRuntimeConfig, patchGuildRuntimeConfig } from "../services/guild-config.service.js";
-import { publishGuildPanels } from "../services/guild-panels.service.js";
+import { publishGuildPanels, publishOperationalLog } from "../services/guild-panels.service.js";
 
 const roleDefinitions = [
   { name: "Administrador", color: 0x0f766e, permissions: [PermissionFlagsBits.Administrator] },
@@ -188,7 +188,7 @@ export const setupLanstecCommand = {
     .addStringOption((option) =>
       option
         .setName("modo")
-        .setDescription("Vazio = seletivo; reset = recriar estrutura; resetchatsonly = preservar cargos")
+        .setDescription("Vazio = sincronizar sem apagar; reset = recriar; resetchatsonly = recriar canais")
         .addChoices(
           { name: "Reset integral (preserva cargos administrativos)", value: "reset" },
           { name: "Reset somente canais (preserva todos os cargos)", value: "resetchatsonly" },
@@ -204,7 +204,7 @@ export const setupLanstecCommand = {
       return;
     }
 
-    const mode = interaction.options.getString("modo") ?? "selective";
+    const mode = interaction.options.getString("modo") ?? "sync";
     const reset = mode === "reset";
     const resetChatsOnly = mode === "resetchatsonly";
     await interaction.deferReply({ ephemeral: true });
@@ -421,17 +421,17 @@ export const setupLanstecCommand = {
       interaction.user.id,
     );
 
-    await publishGuildPanels(guild);
+    await publishOperationalLog(guild, "🏗️ Estrutura criada com sucesso", `**Categorias:** ${categoriesCreated} criadas / ${categoriesReused} mantidas\\n**Canais:** ${channelsCreated} criados / ${channelsSynced} mantidos\\n**Cargos:** ${roles.size} sincronizados`, "create");\n    await publishOperationalLog(guild, "🔄 Sincronizando painéis", "Publicando e verificando os painéis LANSTEC em seus canais de destino.", "update");\n    await publishGuildPanels(guild);
     const summary = [
       "✅ **LANSTEC — setup concluído**",
       `• ${categoriesCreated} categorias criadas / ${categoriesReused} reutilizadas; ${channelsCreated} canais criados / ${channelsSynced} sincronizados.`,
       `• ${roles.size} cargos; ${Object.keys(channelIds).length} IDs de canais persistidos no Supabase.`,
-      "• Painéis republicados; cache de referências antigas de painéis/webhooks zerado.",
+      "• Painéis verificados; mensagens inalteradas foram preservadas.",
       reset
         ? "⚠️ Reset executado; cargos administrativos preservados."
         : resetChatsOnly
           ? "🧩 Resetchatsonly: todos os canais/categorias recriados; todos os cargos preservados e sincronizados."
-          : "🛡️ Modo seletivo: canais/categorias externos preservados; categorias LANSTEC reconstruídas.",
+          : "🛡️ Sincronização segura: canais externos preservados; somente divergências LANSTEC corrigidas.",
       announcementsFallback || stageFallback
         ? "ℹ️ Community desativada: alguns tipos foram convertidos para Text/Voice."
         : "Tipos de canais aplicados conforme configuração.",
