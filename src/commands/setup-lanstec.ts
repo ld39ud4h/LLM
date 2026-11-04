@@ -411,7 +411,9 @@ export const setupLanstecCommand = {
       interaction.user.id,
     );
 
-    await publishOperationalLog(guild, "🏗️ Estrutura criada com sucesso", `**Categorias:** ${categoriesCreated} criadas / ${categoriesReused} mantidas\n**Canais:** ${channelsCreated} criados / ${channelsSynced} mantidos\n**Cargos:** ${roles.size} sincronizados`, "create");\n    await publishOperationalLog(guild, "🔄 Sincronizando painéis", "Publicando e verificando os painéis LANSTEC em seus canais de destino.", "update");\n    await publishGuildPanels(guild);
+    await publishOperationalLog(guild, "🏗️ Estrutura criada com sucesso", `**Categorias:** ${categoriesCreated} criadas / ${categoriesReused} mantidas\n**Canais:** ${channelsCreated} criados / ${channelsSynced} mantidos\n**Cargos:** ${roles.size} sincronizados`, "create");
+    await publishOperationalLog(guild, "🔄 Sincronizando painéis", "Publicando e verificando os painéis LANSTEC em seus canais de destino.", "update");
+    await publishGuildPanels(guild);
     const summary = [
       "✅ **LANSTEC — setup concluído**",
       `• ${categoriesCreated} categorias criadas / ${categoriesReused} reutilizadas; ${channelsCreated} canais criados / ${channelsSynced} sincronizados.`,
