@@ -312,8 +312,8 @@ client.on(Events.MessageCreate, async message => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
- const id=interaction.customId;
  if(!interaction.isButton()&&!interaction.isStringSelectMenu()&&!interaction.isModalSubmit())return;
+ const id=interaction.customId;
  if(!id.startsWith("lanstec:work:"))return;
  try{
   if(!interaction.guildId){await interaction.reply({content:"Este painel funciona dentro de um servidor.",ephemeral:true});return;}
