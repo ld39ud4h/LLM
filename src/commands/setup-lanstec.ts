@@ -124,7 +124,8 @@ async function ensureRole(guild: Guild, definition: (typeof roleDefinitions)[num
   if (existing) {
     const permissionsMatch = definition.permissions ? existing.permissions.bitfield === definition.permissions.reduce((bits, permission) => bits | permission, 0n) : true;
     if (existing.color !== definition.color || !permissionsMatch) {
-      await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });\n    }
+      await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });
+    }
     return existing;
   }
   return guild.roles.create({
