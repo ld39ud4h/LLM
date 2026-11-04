@@ -53,6 +53,7 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   const config = await getGuildRuntimeConfig(guild.id);
   const saved = config.panels?.[panelKey];
   const desired = build();
+  // Build the Components V2 payload without mixing legacy embeds/content.
   const payload = { components: [desired], flags: [MessageFlags.IsComponentsV2] as const };
   let existing: Message | undefined;
   if (saved?.channelId === channel.id && saved.messageId) {
