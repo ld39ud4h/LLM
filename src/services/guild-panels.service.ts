@@ -151,9 +151,8 @@ export async function publishOperationalLog(
   details: string,
   kind: "create" | "update" | "delete" | "ticket" | "error" = "update",
 ) {
-  const channel = guild.channels.cache.find(
-    c => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.logs,
-  );
+  const logName = normalizeChannelName(CHANNEL_NAMES.logs);
+  const channel = guild.channels.cache.find(c => c.type === ChannelType.GuildText && (normalizeChannelName(c.name) === logName || normalizeChannelName(c.name).endsWith(logName)));
   if (!channel || !channel.isTextBased() || !("send" in channel)) return;
   const colors = { create: 0x16a34a, update: 0x0891b2, delete: 0xdc2626, ticket: 0x7c3aed, error: 0xef4444 };
   const card = new ContainerBuilder().setAccentColor(colors[kind])
