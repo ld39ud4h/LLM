@@ -244,20 +244,20 @@ export const setupLanstecCommand = {
             candidate.customId.startsWith("setup-lanstec-reset-"),
         });
         if (component.customId.endsWith("cancel")) {
-          await component.update({ content: "Reset cancelado.", components: [] });
-          await interaction.editReply("Reset cancelado.");
+          await component.update({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("🟢 **Reset cancelado.** Nenhuma alteração foi realizada."))] });
+          await interaction.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("🟢 **Reset cancelado.** Nenhuma alteração foi realizada.")),], flags: MessageFlags.IsComponentsV2 });
           return;
         }
         await component.deferUpdate();
       } catch {
         await interaction.editReply({
-          content: "Confirmação expirada; nada foi apagado.",
-          components: [],
+          components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("⌛ **Confirmação expirada.** Nada foi apagado."))],
+          flags: MessageFlags.IsComponentsV2,
         });
         return;
       }
 
-      await interaction.editReply({ content: "🧹 Apagando estrutura…", components: [] });
+      await interaction.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("🧹 **Apagando estrutura…**\\nPreparando canais e cargos."))], flags: MessageFlags.IsComponentsV2 });
 
       for (const channel of [...guild.channels.cache.values()]) {
         try {
@@ -436,6 +436,6 @@ export const setupLanstecCommand = {
         ? "ℹ️ Community desativada: alguns tipos foram convertidos para Text/Voice."
         : "Tipos de canais aplicados conforme configuração.",
     ].join("\\n");
-    await interaction.editReply(summary);
+    await interaction.editReply({ components: [new ContainerBuilder().setAccentColor(0x16a34a).addTextDisplayComponents(new TextDisplayBuilder().setContent(summary))], flags: MessageFlags.IsComponentsV2 });
   },
 };
