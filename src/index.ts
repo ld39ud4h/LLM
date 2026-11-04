@@ -118,9 +118,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if(!staff){await interaction.reply({content:"Somente a equipe pode assumir ou encerrar tickets.",ephemeral:true});return;}
       if(interaction.customId==="lanstec:ticket:claim"){await claimTicket(interaction.channel.id,interaction.user.id);await interaction.reply({content:"🧑‍💻 Ticket assumido por <@"+interaction.user.id+">"});return;}
       const closed=await closeTicket(interaction.channel.id,interaction.user.id);
-      await interaction.channel.permissionOverwrites.edit(closed.requester_id,{SendMessages:false,AddReactions:false});
-      await interaction.channel.send("🔒 Ticket encerrado por <@"+interaction.user.id+">. Transcrição preservada no banco.");
-      await interaction.reply({content:"Ticket encerrado e solicitante bloqueado.",ephemeral:true});
+      await interaction.reply({content:"🔒 Ticket encerrado. Este tópico será excluído em 5 segundos.",ephemeral:true});
+      await interaction.channel.send("🔒 Ticket encerrado por <@"+interaction.user.id+">. Transcrição preservada no banco.\n🗑️ Este tópico será excluído em **5 segundos**.");
+      await publishOperationalLog(interaction.guild, "🔒 Ticket encerrado", `**Ticket:** ${interaction.channel.id}\n**Solicitante:** <@${closed.requester_id}>\n**Encerrado por:** <@${interaction.user.id}>\n**Exclusão:** em 5 segundos`, "delete");
+      logger.info({guildId:interaction.guild.id,ticketId:interaction.channel.id,requesterId:closed.requester_id,closedBy:interaction.user.id,deleteAfterMs:5000,operation:"ticket_close"}, "Ticket encerrado; exclusão agendada");
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      await interaction.channel.delete("Ticket encerrado — limpeza após 5 segundos");
+      logger.info({guildId:interaction.guild.id,ticketId:interaction.channel.id,operation:"ticket_delete"}, "Tópico privado de ticket excluído");
+      await publishOperationalLog(interaction.guild, "🗑️ Tópico de ticket excluído", `**ID:** ${interaction.channel.id}\n**Motivo:** encerramento + 5 segundos`, "delete");
     } catch(error) {logger.error({err:error,feature:"ticket-action"},"Ticket action failed");if(interaction.isRepliable()&&!interaction.replied)await interaction.reply({content:"Não foi possível concluir a ação.",ephemeral:true}).catch(()=>undefined);}
     return;
   }
