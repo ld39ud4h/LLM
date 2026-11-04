@@ -35,68 +35,85 @@ const roleChannelGroups = {
 };
 
 type GroupKey = keyof typeof roleChannelGroups;
-type ChannelKind = ChannelType.GuildText | ChannelType.GuildVoice;
+type ChannelKind =
+  | ChannelType.GuildText
+  | ChannelType.GuildVoice
+  | ChannelType.GuildAnnouncement
+  | ChannelType.GuildForum
+  | ChannelType.GuildStageVoice;
 
-const groups: Array<{
-  name: string;
-  privacy: "public" | GroupKey;
-  channels: Array<{ name: string; type?: ChannelKind; topic?: string }>;
-}> = [
+type ChannelDefinition = { name: string; type?: ChannelKind; topic?: string };
+const groups: Array<{ name: string; privacy: "public" | GroupKey; channels: ChannelDefinition[] }> = [
   {
-    name: "📌 LANSTEC | INÍCIO",
+    name: "📍・INÍCIO",
     privacy: "public",
     channels: [
-      { name: "boas-vindas", topic: "Boas-vindas à LANSTEC Tecnologia." },
-      { name: "regras-e-seguranca", topic: "Regras, privacidade e segurança da comunidade." },
-      { name: "anuncios", topic: "Comunicados oficiais da LANSTEC." },
-      { name: "documentacao-publica", topic: "Materiais e documentação pública." },
+      { name: "👋・boas-vindas", topic: "Boas-vindas à LANSTEC Tecnologia." },
+      { name: "📜・regras", topic: "Regras, privacidade e segurança da comunidade." },
+      { name: "📢・anúncios", type: ChannelType.GuildAnnouncement, topic: "Comunicados oficiais da LANSTEC." },
+      { name: "📚・documentação", topic: "Materiais, orientações e documentação pública." },
+      { name: "🛡️・segurança", topic: "Orientações de segurança digital e boas práticas." },
     ],
   },
   {
-    name: "🏢 LANSTEC | EMPRESA",
+    name: "🏢・EMPRESA",
     privacy: "staff",
     channels: [
-      { name: "comunicacao-interna" },
-      { name: "gestao-e-planejamento" },
-      { name: "tarefas-e-projetos" },
-      { name: "reunioes", type: ChannelType.GuildVoice },
+      { name: "💬・comunicação-interna" },
+      { name: "📊・gestão-e-planejamento" },
+      { name: "🗂️・tarefas-e-projetos", topic: "Acompanhamento de tarefas e projetos internos." },
+      { name: "📝・atas-e-reuniões", topic: "Registros e pautas de reuniões." },
+      { name: "🔊・reuniões", type: ChannelType.GuildVoice },
     ],
   },
   {
-    name: "🛡️ LANSTEC | CYBER LAB",
+    name: "🧪・CYBER LAB",
     privacy: "technical",
     channels: [
-      { name: "laboratorio" },
-      { name: "monitoramento" },
-      { name: "alertas-de-seguranca", topic: "Alertas de segurança e eventos que exigem triagem." },
-      { name: "documentacao-tecnica" },
+      { name: "💻・laboratório", topic: "Discussões e experimentos técnicos autorizados." },
+      { name: "📡・monitoramento", topic: "Monitoramento e observabilidade dos sistemas." },
+      { name: "🚨・alertas-de-segurança", topic: "Alertas de segurança e eventos que exigem triagem." },
+      { name: "📖・documentação-técnica", topic: "Runbooks, procedimentos e documentação técnica." },
+      { name: "🧩・incidentes", topic: "Triagem, investigação e acompanhamento de incidentes." },
     ],
   },
   {
-    name: "🤝 LANSTEC | CLIENTES",
+    name: "🤝・CLIENTES",
     privacy: "clients",
     channels: [
-      { name: "central-de-atendimento", topic: "Orientações e encaminhamento de suporte." },
-      { name: "abrir-ticket", topic: "Use o sistema de tickets quando estiver disponível." },
+      { name: "🧭・central-de-atendimento", topic: "Orientações e encaminhamento de suporte." },
+      { name: "🎫・abrir-ticket", topic: "Use o painel abaixo para abrir um atendimento privado." },
+      { name: "📣・avisos-aos-clientes", type: ChannelType.GuildAnnouncement, topic: "Comunicados operacionais destinados aos clientes." },
     ],
   },
   {
-    name: "🌐 LANSTEC | COMUNIDADE",
+    name: "🌐・COMUNIDADE",
     privacy: "public",
     channels: [
-      { name: "bate-papo" },
-      { name: "tecnologia-e-inovacao" },
-      { name: "divulgacao" },
-      { name: "sugestoes" },
+      { name: "💬・chat-geral", topic: "Converse livremente com a comunidade." },
+      { name: "☕・bate-papo", topic: "Conversas descontraídas e assuntos diversos." },
+      { name: "💡・sugestões", type: ChannelType.GuildForum, topic: "Publique uma sugestão por postagem; a comunidade pode votar e comentar." },
+      { name: "🧠・tecnologia-e-inovação", type: ChannelType.GuildForum, topic: "Compartilhe dúvidas, descobertas e discussões sobre tecnologia." },
+      { name: "🐛・reportar-problema", type: ChannelType.GuildForum, topic: "Cada publicação deve descrever um problema diferente." },
+      { name: "📸・divulgação", topic: "Compartilhe projetos, portfólios e iniciativas respeitando as regras." },
     ],
   },
   {
-    name: "🤖 LANSTEC | AUTOMAÇÃO",
+    name: "🤖・SISTEMAS",
     privacy: "admin",
     channels: [
-      { name: "comandos-do-bot" },
-      { name: "logs-do-bot", topic: "Logs operacionais, erros e diagnósticos do bot." },
-      { name: "status-e-alertas", topic: "Inicialização, disponibilidade e status de execução." },
+      { name: "⚙️・comandos-do-bot" },
+      { name: "📋・logs-do-bot", topic: "Logs operacionais, erros e diagnósticos do bot." },
+      { name: "📈・status-e-alertas", topic: "Inicialização, disponibilidade e status de execução." },
+    ],
+  },
+  {
+    name: "🔊・CONVÍVIO",
+    privacy: "public",
+    channels: [
+      { name: "🔊・sala-geral", type: ChannelType.GuildVoice },
+      { name: "🎮・jogos", type: ChannelType.GuildVoice },
+      { name: "🎙️・palco-da-comunidade", type: ChannelType.GuildStageVoice },
     ],
   },
 ];
@@ -128,32 +145,29 @@ async function ensureCategory(guild: Guild, name: string, overwrites: OverwriteR
   });
 }
 
-async function ensureChannel(
-  guild: Guild,
-  category: CategoryChannel,
-  definition: { name: string; type?: ChannelKind; topic?: string },
-): Promise<GuildBasedChannel> {
+async function ensureChannel(guild: Guild, category: CategoryChannel, definition: ChannelDefinition): Promise<GuildBasedChannel> {
   const type = definition.type ?? ChannelType.GuildText;
   const existing = guild.channels.cache.find(
     (channel) => channel.parentId === category.id && channel.name === definition.name && channel.type === type,
   );
   if (existing) {
-    if (existing.type === ChannelType.GuildText && definition.topic) await existing.setTopic(definition.topic, "Sincronização de tópico LANSTEC");
+    if ("setTopic" in existing && definition.topic) await existing.setTopic(definition.topic, "Sincronização de tópico LANSTEC");
     return existing;
   }
   return guild.channels.create({
     name: definition.name,
     type,
     parent: category.id,
-    ...(type === ChannelType.GuildText && definition.topic ? { topic: definition.topic } : {}),
-    reason: "Configuração inicial LANSTEC Tecnologia",
+    ...(type === ChannelType.GuildText || type === ChannelType.GuildAnnouncement || type === ChannelType.GuildForum
+      ? (definition.topic ? { topic: definition.topic } : {}) : {}),
+    reason: "Configuração inicial LANSTEC",
   });
 }
 
 export const setupLanstecCommand = {
   data: new SlashCommandBuilder()
     .setName("setup_lanstec")
-    .setDescription("Cria a estrutura inicial da LANSTEC Tecnologia neste servidor.")
+    .setDescription("Cria/sincroniza a estrutura profissional da LANSTEC Tecnologia.")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   async execute(interaction: ChatInputCommandInteraction) {
@@ -173,57 +187,54 @@ export const setupLanstecCommand = {
     }
 
     const everyone = guild.roles.everyone;
-    let createdCategories = 0;
-    let createdChannels = 0;
-    let reusedCategories = 0;
-    let reusedChannels = 0;
-
+    let createdCategories = 0, createdChannels = 0, reusedCategories = 0, reusedChannels = 0;
     for (const group of groups) {
       const overwrites: OverwriteResolvable[] = [];
       if (group.privacy !== "public") {
         overwrites.push({ id: everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
-        const allowedRoles = [...roleChannelGroups[group.privacy as GroupKey], "Bot / sistemas"];
-        for (const roleName of allowedRoles) {
-          const role = roles.get(roleName);
-          if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory] });
-        }
+        const allowedRoles = [...roleChannelGroups[group.privacy], "Bot / sistemas"];
         for (const roleName of allowedRoles) {
           const role = roles.get(roleName);
           if (!role) continue;
-          if (roleName === "Bot / sistemas") overwrites.push({ id: role.id, allow: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-          else if (group.privacy === "staff" || group.privacy === "technical" || group.privacy === "clients") {
-            overwrites.push({ id: role.id, allow: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
-          }
+          const isBot = roleName === "Bot / sistemas";
+          overwrites.push({
+            id: role.id,
+            allow: [
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.ReadMessageHistory,
+              ...(isBot ? [PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages] : [
+                PermissionFlagsBits.SendMessages,
+                PermissionFlagsBits.SendMessagesInThreads,
+                PermissionFlagsBits.CreatePublicThreads,
+                PermissionFlagsBits.CreatePrivateThreads,
+                PermissionFlagsBits.Connect,
+                PermissionFlagsBits.Speak,
+              ]),
+            ],
+          });
         }
       }
 
-      const oldCategory = guild.channels.cache.find(
-        (channel) => channel.type === ChannelType.GuildCategory && channel.name === group.name,
-      );
+      const oldCategory = guild.channels.cache.find((c) => c.type === ChannelType.GuildCategory && c.name === group.name);
       const category = await ensureCategory(guild, group.name, overwrites);
       if (oldCategory) reusedCategories++; else createdCategories++;
-
-      for (const channelDefinition of group.channels) {
-        const existed = guild.channels.cache.some(
-          (channel) => channel.parentId === category.id && channel.name === channelDefinition.name && channel.type === (channelDefinition.type ?? ChannelType.GuildText),
-        );
-        await ensureChannel(guild, category, channelDefinition);
+      for (const def of group.channels) {
+        const existed = guild.channels.cache.some((c) => c.parentId === category.id && c.name === def.name && c.type === (def.type ?? ChannelType.GuildText));
+        await ensureChannel(guild, category, def);
         if (existed) reusedChannels++; else createdChannels++;
       }
     }
 
     await publishGuildPanels(guild);
     await interaction.editReply([
-      "✅ **LANSTEC Tecnologia configurada!**",
-      `• ${createdCategories} categorias criadas (${reusedCategories} existentes sincronizadas).`,
-      `• ${createdChannels} canais criados (${reusedChannels} existentes mantidos).`,
+      "✅ **LANSTEC Tecnologia — estrutura sincronizada!**",
+      `• ${createdCategories} categorias criadas; ${reusedCategories} sincronizadas.`,
+      `• ${createdChannels} canais criados; ${reusedChannels} já existentes.`,
       `• ${roleDefinitions.length} cargos verificados/criados.`,
       "",
-      "A configuração é idempotente: executar novamente não duplica categorias ou canais.",
-      "⚠️ Atribua os cargos aos membros e revise os acessos antes de compartilhar dados confidenciais.",
-      "• Painéis de sugestões e atendimento publicados/sincronizados.",
-      "• Cartão de boas-vindas ativado para novos membros.",
-      "Os tickets individuais com canais privados serão adicionados em uma próxima etapa.",
+      "Tipos aplicados: anúncios (Announcement), sugestões/ideias/problemas (Forum), conversa (Text), salas (Voice) e palco (Stage).",
+      "⚠️ Revise os cargos e permissões antes de publicar dados internos. O comando não apaga canais antigos nem migra mensagens.",
+      "Painéis de atendimento/sugestões e boas-vindas foram sincronizados.",
     ].join("\n"));
   },
 };
