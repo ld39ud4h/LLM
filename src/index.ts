@@ -340,7 +340,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
   const taskSubmit=id.match(/^lanstec:work:task:submit:(create|edit)(?::([0-9a-f-]+))?$/i);
   if(interaction.isModalSubmit()&&taskSubmit){const [,mode,taskId]=taskSubmit;const title=interaction.fields.getTextInputValue("title").trim(),description=interaction.fields.getTextInputValue("description").trim(),due=interaction.fields.getTextInputValue("due").trim();if(due&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(due)){await interaction.reply({content:"Prazo inválido. Use AAAA-MM-DD.",ephemeral:true});return;}
-   if(mode==="create")await createTask({guildId,userId,title,description,priority:"normal",dueDate:due||undefined});else if(taskId){const own=(await listTasks(guildId,userId)).some(x=>x.id===taskId);if(!own){await interaction.reply({content:"Tarefa não pertence a você.",ephemeral:true});return;}await updateTask(guildId,userId,taskId,{title,description,due_date:due||null});}
+   if(mode==="create")await createTask({guildId,userId,title,description,priority:"normal",...(due ? {dueDate:due} : {})});else if(taskId){const own=(await listTasks(guildId,userId)).some(x=>x.id===taskId);if(!own){await interaction.reply({content:"Tarefa não pertence a você.",ephemeral:true});return;}await updateTask(guildId,userId,taskId,{title,description,due_date:due||null});}
    await interaction.reply(taskList(await listTasks(guildId,userId)));return;
   }
   const projectSubmit=id.match(/^lanstec:work:project:submit:(create|edit)(?::([0-9a-f-]+))?$/i);
