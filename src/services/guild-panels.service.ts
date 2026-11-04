@@ -65,6 +65,7 @@ function resolvePanelChannel(guild: Guild, key: string) {
 }
 
 async function upsertPanel(guild: Guild, channelName: string, customId: string, build: () => ContainerBuilder) {
+  try {
   const panelKey = customId.replace("PANEL:", "");
   const channel = resolvePanelChannel(guild, panelKey);
   if (!channel) {
@@ -138,6 +139,9 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: created.id, customId });
     logger.info({ guildId: guild.id, panelKey, panelName: channel.name, channelId: channel.id, messageId: created.id, action: "created", operation: "panel_create" }, "Painel criado");
     await publishOperationalLog(guild, "🆕 Painel criado", `**Painel:** ${panelKey}\n**Canal:** <#${channel.id}>\n**Mensagem:** ${created.id}`, "create");
+  }
+  } catch (error) {
+    logger.error({ err: error, guildId: guild.id, panelKey: customId.replace("PANEL:", ""), channelName, feature: "panels" }, "Panel sync failed; other panels will continue");
   }
 }
 
