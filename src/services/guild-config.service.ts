@@ -4,6 +4,8 @@ import { logger } from "../config/logger.js";
 
 export type GuildRuntimeConfig = {
   panels?: Record<string, { channelId: string; messageId: string; customId: string; updatedAt: string }>;
+  channels?: Record<string, string>;
+  setup?: { channelIds?: Record<string, string>; [key: string]: unknown };
   webhooks?: Record<string, { id: string; url?: string; channelId?: string; name?: string; createdAt: string }>;
   [key: string]: unknown;
 };
