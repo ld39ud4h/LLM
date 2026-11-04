@@ -63,6 +63,11 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
     existing = recent.find((message) => message.author.id === guild.client.user?.id && hasCustomId(message, customId));
   }
   if (existing) {
+    if (componentsAreEqual(existing, desired)) {
+      await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: existing.id, customId });
+      logger.debug({ guildId: guild.id, panelKey, channelId: channel.id, messageId: existing.id, action: "unchanged", operation: "panel_sync" }, "Painel já está atualizado; nenhuma alteração necessária");
+      return;
+    }
     await existing.edit(payload);
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: existing.id, customId });
     logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: existing.id, action: "updated", operation: "panel_update" }, "Painel atualizado");
