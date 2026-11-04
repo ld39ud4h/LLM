@@ -4,7 +4,7 @@ import {
   TextInputStyle, TextDisplayBuilder, SeparatorBuilder, Client,
 } from "discord.js";
 import { logger } from "../config/logger.js";
-import { getGuildRuntimeConfig, setGuildPanel, setGuildChannel } from "./guild-config.service.js";
+import { getGuildRuntimeConfig, setGuildPanel, setGuildChannel, patchGuildRuntimeConfig } from "./guild-config.service.js";
 import { PANEL_MARKERS, CHANNEL_NAMES } from "../config/guild-identifiers.js";
 
 const ACCENT = 0x06b6d4;
@@ -53,7 +53,7 @@ function resolvePanelChannel(guild: Guild, key: string) {
     support: ["centraldeatendimento"],
     tickets: ["abrirticket", "tickets"],
     rules: ["regras", "regraseseguranca"],
-    docs: ["documentacao", "documentacaopublica"],
+    docs: ["documentacao", "documentacaopublica"],\n    work: ["tarefaseprojetos", "tarefasprojetos"],
   };
   const candidates = aliases[key] ?? [];
   return guild.channels.cache.find(channel => {
@@ -172,6 +172,21 @@ function panelDivider() {
 }
 
 export async function publishGuildPanels(guild: Guild) {
+  // Remove the retired suggestions panel from its old destination and runtime config.
+  const previous = await getGuildRuntimeConfig(guild.id);
+  const oldSuggestion = previous.panels?.suggestions;
+  if (oldSuggestion) {
+    const oldChannel = guild.channels.cache.get(oldSuggestion.channelId);
+    if (oldChannel && oldChannel.isTextBased() && "messages" in oldChannel) {
+      const oldMessage = await oldChannel.messages.fetch(oldSuggestion.messageId).catch(() => undefined);
+      if (oldMessage?.author.id === guild.client.user?.id) {
+        await oldMessage.delete().catch(error => logger.warn({ err: error, guildId: guild.id }, "Could not remove retired suggestions panel"));
+      }
+    }
+    const panels = { ...(previous.panels ?? {}) };
+    delete panels.suggestions;
+    await patchGuildRuntimeConfig(guild.id, { panels });
+  }
   await upsertPanel(guild, CHANNEL_NAMES.support, PANEL_IDS.support, () =>
     new ContainerBuilder().setAccentColor(0x0f766e)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🛟 Central de atendimento\nPrecisa de ajuda? Abra uma solicitação para a equipe LANSTEC.\n\n**Antes de abrir:** não publique senhas, tokens, dados pessoais ou informações confidenciais em canais públicos."))
