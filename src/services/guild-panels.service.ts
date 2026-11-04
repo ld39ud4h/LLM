@@ -85,7 +85,7 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
       if (thread) await thread.setArchived(false);
     }
     let existing: Message | undefined;
-    if (thread) existing = await thread.fetchStarterMessage().catch(() => undefined);
+    if (thread) existing = (await thread.fetchStarterMessage().catch(() => undefined)) ?? undefined;
     if (existing && existing.author.id !== guild.client.user?.id) existing = undefined;
     if (!existing) {
       thread = undefined;
@@ -94,7 +94,7 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
         message: payload,
         reason: "Publicação/verificação do painel persistente LANSTEC",
       });
-      existing = await createdThread.fetchStarterMessage().catch(() => undefined);
+      existing = (await createdThread.fetchStarterMessage().catch(() => undefined)) ?? undefined;
       thread = createdThread;
     } else if (!componentsAreEqual(existing, desired)) {
       await existing.edit(payload);
