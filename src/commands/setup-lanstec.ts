@@ -190,8 +190,8 @@ export const setupLanstecCommand = {
  const mode=interaction.options.getString("modo")??"selective";const reset=mode==="reset";const resetChatsOnly=mode==="resetchatsonly";await interaction.deferReply({ephemeral:true});
  if(reset||resetChatsOnly){
    const confirmationText = resetChatsOnly
-    ? "# ⚠️ Resetchatsonly\\n**Todos os canais e categorias serão excluídos**"
-    : "# ⚠️ Reset\\n**Todos os canais e categorias serão excluídos**, inclusive os que não são LANSTEC. Cargos administrativos (Administrador/Gerente e cargos com permissão Administrator), membros e @everyone serão preservados. Outros cargos personalizados poderão ser removidos. Cargos gerenciados por integrações não podem ser removidos.";
+    ? "# ⚠️ Resetchatsonly\n**Todos os canais e categorias serão excluídos**"
+    : "# ⚠️ Reset\n**Todos os canais e categorias serão excluídos**, inclusive os que não são LANSTEC. Cargos administrativos (Administrador/Gerente e cargos com permissão Administrator), membros e @everyone serão preservados. Outros cargos personalizados poderão ser removidos. Cargos gerenciados por integrações não podem ser removidos.";
    const panel = new ContainerBuilder().setAccentColor(0xdc2626)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(confirmationText))
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
