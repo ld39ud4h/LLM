@@ -43,18 +43,70 @@ function componentsAreEqual(current: Message, desired: ContainerBuilder): boolea
   return JSON.stringify(currentJSON) === JSON.stringify(desiredJSON);
 }
 
+function normalizeChannelName(value: string): string {
+  return value.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+function resolvePanelChannel(guild: Guild, key: string) {
+  const aliases: Record<string, string[]> = {
+    suggestions: ["sugestoes", "centraldesugestoes"],
+    support: ["centraldeatendimento"],
+    tickets: ["abrirticket", "tickets"],
+    rules: ["regras", "regraseseguranca"],
+    docs: ["documentacao", "documentacaopublica"],
+  };
+  const candidates = aliases[key] ?? [];
+  return guild.channels.cache.find(channel => {
+    const normalized = normalizeChannelName(channel.name);
+    return candidates.some(alias => normalized === alias || normalized.endsWith(alias));
+  });
+}
+
 async function upsertPanel(guild: Guild, channelName: string, customId: string, build: () => ContainerBuilder) {
-  const channel = guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === channelName);
-  if (!channel || !channel.isTextBased() || !("messages" in channel)) {
-    logger.warn({ guildId: guild.id, channelName }, "Panel channel not found; run /setup_lanstec first");
+  const panelKey = customId.replace("PANEL:", "");
+  const channel = resolvePanelChannel(guild, panelKey);
+  if (!channel) {
+    logger.warn({ guildId: guild.id, channelName, panelKey }, "Panel destination not found; setup must create its channel");
     return;
   }
-  const panelKey = customId.replace("PANEL:", "");
   const config = await getGuildRuntimeConfig(guild.id);
   const saved = config.panels?.[panelKey];
   const desired = build();
-  // Build the Components V2 payload without mixing legacy embeds/content.
   const payload = { components: [desired], flags: [MessageFlags.IsComponentsV2] as const };
+
+  // Forum panels are persistent starter posts; text panels are regular messages.
+  if (channel.type === ChannelType.GuildForum) {
+    const forum = channel;
+    const active = await forum.threads.fetchActive();
+    let thread = active.threads.find(item => item.name === "📌・Central de sugestões");
+    let existing: Message | undefined;
+    if (thread) existing = await thread.fetchStarterMessage().catch(() => undefined);
+    if (existing && existing.author.id !== guild.client.user?.id) existing = undefined;
+    if (!existing) {
+      thread = undefined;
+      const createdThread = await forum.threads.create({
+        name: "📌・Central de sugestões",
+        message: payload,
+        reason: "Publicação/verificação do painel persistente LANSTEC",
+      });
+      existing = await createdThread.fetchStarterMessage().catch(() => undefined);
+      thread = createdThread;
+    } else if (!componentsAreEqual(existing, desired)) {
+      await existing.edit(payload);
+      logger.info({ guildId: guild.id, panelKey, channelId: forum.id, threadId: thread?.id, messageId: existing.id, action: "updated", operation: "panel_update" }, "Painel de fórum atualizado");
+      await publishOperationalLog(guild, "📝 Painel atualizado", `**Painel:** ${panelKey}\n**Canal:** <#${forum.id}>\n**Post:** <#${thread?.id}>\n**Mensagem:** ${existing.id}`, "update");
+    }
+    if (existing && thread) {
+      await setGuildPanel(guild.id, panelKey, { channelId: forum.id, messageId: existing.id, customId });
+      if (thread.name !== "📌・Central de sugestões") await thread.setName("📌・Central de sugestões");
+    }
+    return;
+  }
+
+  if (channel.type !== ChannelType.GuildText || !channel.isTextBased() || !("messages" in channel)) {
+    logger.warn({ guildId: guild.id, panelKey, channelId: channel.id, type: channel.type }, "Unsupported panel channel type");
+    return;
+  }
   let existing: Message | undefined;
   if (saved?.channelId === channel.id && saved.messageId) {
     existing = await channel.messages.fetch(saved.messageId).catch(() => undefined);
@@ -62,7 +114,7 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   }
   if (!existing) {
     const recent = await channel.messages.fetch({ limit: 100 });
-    existing = recent.find((message) => message.author.id === guild.client.user?.id && hasCustomId(message, customId));
+    existing = recent.find(message => message.author.id === guild.client.user?.id && hasCustomId(message, customId));
   }
   if (existing) {
     if (componentsAreEqual(existing, desired)) {
@@ -72,12 +124,12 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
     }
     await existing.edit(payload);
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: existing.id, customId });
-    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: existing.id, action: "updated", operation: "panel_update" }, "Painel atualizado");
+    logger.info({ guildId: guild.id, panelKey, panelName: channel.name, channelId: channel.id, messageId: existing.id, action: "updated", operation: "panel_update" }, "Painel atualizado");
     await publishOperationalLog(guild, "📝 Painel atualizado", `**Painel:** ${panelKey}\n**Canal:** <#${channel.id}>\n**Mensagem:** ${existing.id}`, "update");
   } else {
     const created = await channel.send(payload);
     await setGuildPanel(guild.id, panelKey, { channelId: channel.id, messageId: created.id, customId });
-    logger.info({ guildId: guild.id, panelKey, panelName: channelName, channelId: channel.id, messageId: created.id, action: "created", operation: "panel_create" }, "Painel criado");
+    logger.info({ guildId: guild.id, panelKey, panelName: channel.name, channelId: channel.id, messageId: created.id, action: "created", operation: "panel_create" }, "Painel criado");
     await publishOperationalLog(guild, "🆕 Painel criado", `**Painel:** ${panelKey}\n**Canal:** <#${channel.id}>\n**Mensagem:** ${created.id}`, "create");
   }
 }
