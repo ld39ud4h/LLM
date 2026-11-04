@@ -4,7 +4,7 @@ import {
   TextInputStyle, TextDisplayBuilder, SeparatorBuilder, Client,
 } from "discord.js";
 import { logger } from "../config/logger.js";
-import { getGuildRuntimeConfig, setGuildPanel } from "./guild-config.service.js";\nimport { PANEL_MARKERS, CHANNEL_NAMES } from "../config/guild-identifiers.js";
+import { getGuildRuntimeConfig, setGuildPanel, setGuildChannel } from "./guild-config.service.js";\nimport { PANEL_MARKERS, CHANNEL_NAMES } from "../config/guild-identifiers.js";
 
 const ACCENT = 0x06b6d4;
 const PANEL_IDS = {
