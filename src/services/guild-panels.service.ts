@@ -59,12 +59,17 @@ async function resolvePanelChannel(guild: Guild, key: string) {
   };
   // Prefer the exact channel ID persisted by setup; names are only a recovery fallback.
   const config = await getGuildRuntimeConfig(guild.id);
-  const persistedId = config.channels?.[key] ?? config.setup?.channelIds?.[key];
+  const candidates = aliases[key] ?? [];
+  const persistedId = config.channels?.[key] ?? config.setup?.channelIds?.[key]
+    ?? Object.entries(config.setup?.channelIds ?? {}).find(([name]) => {
+      const normalized = normalizeChannelName(name);
+      return candidates.some(alias => normalized === alias || normalized.endsWith(alias));
+    })?.[1];
   if (persistedId) {
     const persisted = guild.channels.cache.get(persistedId);
     if (persisted) return persisted;
+    logger.warn({ guildId: guild.id, key, persistedId }, "Persisted panel channel ID is stale; falling back to channel name");
   }
-  const candidates = aliases[key] ?? [];
   return guild.channels.cache.find(channel => {
     const normalized = normalizeChannelName(channel.name);
     return candidates.some(alias => normalized === alias || normalized.endsWith(alias));
