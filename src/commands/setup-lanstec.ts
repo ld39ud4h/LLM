@@ -122,7 +122,7 @@ const groups: Array<{ name: string; privacy: "public" | GroupKey; channels: Chan
 async function ensureRole(guild: Guild, definition: (typeof roleDefinitions)[number]): Promise<Role> {
   const existing = guild.roles.cache.find((role) => role.name === definition.name);
   if (existing) {
-    const permissionsMatch = definition.permissions ? existing.permissions.bitfield.equals(definition.permissions.reduce((bits, permission) => bits | permission, 0n)) : true;\n    if (existing.color !== definition.color || !permissionsMatch) {\n      await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });\n    }
+    const permissionsMatch = definition.permissions ? existing.permissions.bitfield === definition.permissions.reduce((bits, permission) => bits | permission, 0n) : true;\n    if (existing.color !== definition.color || !permissionsMatch) {\n      await existing.edit({ color: definition.color, ...(definition.permissions ? { permissions: definition.permissions } : {}), reason: "Sincronização de cargo LANSTEC" });\n    }
     return existing;
   }
   return guild.roles.create({
