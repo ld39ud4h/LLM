@@ -52,7 +52,30 @@ async function upsertPanel(guild: Guild, channelName: string, customId: string, 
   }
 }
 
-export async function publishOperationalLog(guild: Guild, title: string, details: string, kind: "create" | "update" | "delete" | "ticket" | "error" = "update") {\n  const channel = guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.logs);\n  if (!channel || !channel.isTextBased() || !("send" in channel)) return;\n  const colors = { create: 0x16a34a, update: 0x0891b2, delete: 0xdc2626, ticket: 0x7c3aed, error: 0xef4444 };\n  const card = new ContainerBuilder().setAccentColor(colors[kind]).addTextDisplayComponents(new TextDisplayBuilder().setContent("# " + title)).addTextDisplayComponents(new TextDisplayBuilder().setContent(details)).addSeparatorComponents(new SeparatorBuilder().setSpacing(1)).addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • AUDITORIA • " + new Date().toLocaleString("pt-BR")));\n  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { parse: [] } }).catch(error => logger.warn({ err: error, guildId: guild.id, feature: "operational-log" }, "Could not publish operational log"));\n}\n\nexport async function publishGuildPanels(guild: Guild) {
+export async function publishOperationalLog(
+  guild: Guild,
+  title: string,
+  details: string,
+  kind: "create" | "update" | "delete" | "ticket" | "error" = "update",
+) {
+  const channel = guild.channels.cache.find(
+    c => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.logs,
+  );
+  if (!channel || !channel.isTextBased() || !("send" in channel)) return;
+  const colors = { create: 0x16a34a, update: 0x0891b2, delete: 0xdc2626, ticket: 0x7c3aed, error: 0xef4444 };
+  const card = new ContainerBuilder().setAccentColor(colors[kind])
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# " + title))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(1))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • AUDITORIA • " + new Date().toLocaleString("pt-BR")));
+  await channel.send({
+    components: [card],
+    flags: [MessageFlags.IsComponentsV2],
+    allowedMentions: { parse: [] },
+  }).catch(error => logger.warn({ err: error, guildId: guild.id, feature: "operational-log" }, "Could not publish operational log"));
+}
+
+export async function publishGuildPanels(guild: Guild) {
   await upsertPanel(guild, CHANNEL_NAMES.suggestions, PANEL_IDS.suggestions, () =>
     new ContainerBuilder().setAccentColor(ACCENT)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 💡 Central de sugestões\n**Sua ideia pode melhorar a LANSTEC.**\n\nEnvie sugestões de melhorias, novos recursos, eventos ou mudanças na comunidade. A equipe avaliará cada contribuição."))
