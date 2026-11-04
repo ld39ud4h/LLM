@@ -146,3 +146,99 @@ export async function publishGuildPanels(guild: Guild) {
       .addSeparatorComponents(panelDivider())
       .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# LANSTEC • DOCUMENTAÇÃO • TECNOLOGIA COM RESPONSABILIDADE")));
 }
+
+
+export function buildSuggestionModal() {
+  return new ModalBuilder().setCustomId("lanstec:suggestion:submit").setTitle("Enviar sugestão")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("title").setLabel("Título da sugestão").setStyle(TextInputStyle.Short).setMaxLength(100).setRequired(true)),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("description").setLabel("Explique sua ideia").setStyle(TextInputStyle.Paragraph).setMaxLength(1800).setRequired(true)),
+    );
+}
+
+export function buildSupportModal() {
+  return new ModalBuilder().setCustomId("lanstec:support:submit").setTitle("Solicitar atendimento")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("subject").setLabel("Assunto").setStyle(TextInputStyle.Short).setMaxLength(100).setRequired(true)),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("details").setLabel("Descreva o que precisa (sem senhas)").setStyle(TextInputStyle.Paragraph).setMaxLength(1800).setRequired(true)),
+    );
+}
+
+export async function publishSuggestion(guild: Guild, userId: string, title: string, description: string) {
+  const channel = guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.suggestions);
+  if (!channel || !channel.isTextBased() || !("send" in channel)) throw new Error("Canal de sugestões não encontrado.");
+  const card = new ContainerBuilder().setAccentColor(ACCENT)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 💡 " + title))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(description))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(1))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Enviado por <@" + userId + "> • " + new Date().toLocaleDateString("pt-BR")))
+    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId("lanstec:suggestion:vote:up").setLabel("Apoiar").setEmoji("👍").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("lanstec:suggestion:vote:down").setLabel("Não apoiar").setEmoji("👎").setStyle(ButtonStyle.Secondary),
+    ));
+  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [] } });
+}
+
+export async function publishSupportRequest(guild: Guild, member: GuildMember, subject: string, details: string) {
+  const channel = guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.support);
+  if (!channel || !channel.isTextBased() || !("send" in channel)) throw new Error("Canal de atendimento não encontrado.");
+  const card = new ContainerBuilder().setAccentColor(0x0f766e)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Solicitação de atendimento"))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("**" + subject + "**\n" + details))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(1))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + "> • " + new Date().toLocaleString("pt-BR")));
+  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [] } });
+}
+
+export async function sendWelcome(member: GuildMember) {
+  const channel = member.guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.welcome);
+  if (!channel || !channel.isTextBased() || !("send" in channel)) return;
+  const channelId = (name: string) => member.guild.channels.cache.find(c => c.name === name)?.id ?? "";
+  const card = new ContainerBuilder().setAccentColor(ACCENT)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# ✦ Bem-vindo(a) à LANSTEC Tecnologia"))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Olá, <@" + member.id + ">! Que bom ter você por aqui.\n\nSomos uma comunidade de tecnologia, inovação e segurança digital."))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(2))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("**Comece por aqui**\n• Leia <#" + channelId(CHANNEL_NAMES.rules) + ">.\n• Conheça os <#" + channelId(CHANNEL_NAMES.announcements) + ">.\n• Converse em <#" + channelId(CHANNEL_NAMES.general) + ">.\n• Compartilhe ideias em <#" + channelId(CHANNEL_NAMES.suggestions) + ">. "))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("-# Mantenha seus dados e credenciais sempre protegidos."));
+  await channel.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
+}
+
+export async function initializeGuildPanels(client: Client) {
+  for (const guild of client.guilds.cache.values()) {
+    try { await publishGuildPanels(guild); logger.info({ guildId: guild.id, feature: "panels" }, "Persistent panels synchronized"); }
+    catch (error) { logger.error({ err: error, guildId: guild.id, feature: "panels" }, "Panel initialization failed"); }
+  }
+}
+
+export function buildTicketModal() {
+  return new ModalBuilder().setCustomId("lanstec:ticket:submit").setTitle("Abrir ticket")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("subject").setLabel("Assunto").setStyle(TextInputStyle.Short).setMaxLength(90).setRequired(true)),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId("details").setLabel("Descreva sua solicitação").setStyle(TextInputStyle.Paragraph).setMaxLength(1500).setRequired(true)),
+    );
+}
+
+export async function createPrivateTicket(guild: Guild, member: GuildMember, subject: string, details: string, parentChannelId?: string) {
+  const parent = parentChannelId ? guild.channels.cache.get(parentChannelId) : guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.name === CHANNEL_NAMES.tickets);
+  if (!parent || parent.type !== ChannelType.GuildText) throw new Error("Canal de texto pai para tópicos privados não encontrado.");
+  const safeName = subject.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 35).replace(/^-|-$/g, "") || "atendimento";
+  const thread = await parent.threads.create({ name: "🎫-" + safeName + "-" + (member.user.username.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) || "cliente"), type: ChannelType.PrivateThread, autoArchiveDuration: 1440, invitable: false, reason: "Ticket privado LANSTEC" });
+  await thread.members.add(member.id);
+  const staffRoleNames = ["Administrador", "Gerente", "Suporte técnico", "Coordenador técnico"];
+  const staffRoles = guild.roles.cache.filter(role => staffRoleNames.includes(role.name));
+  const allMembers = await guild.members.fetch().catch(() => guild.members.cache);
+  for (const staff of allMembers.filter(m => m.roles.cache.some(role => staffRoles.has(role.id))).values()) {
+    if (staff.id !== member.id) await thread.members.add(staff.id).catch(error => logger.warn({ err: error, userId: staff.id, threadId: thread.id }, "Could not add staff to ticket"));
+  }
+  const card = new ContainerBuilder().setAccentColor(0x2563eb)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("# 🎫 Ticket aberto\n**Assunto:** " + subject))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(details))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("Solicitante: <@" + member.id + ">\nA equipe responderá neste tópico privado. Não envie senhas ou tokens."))
+    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId("lanstec:ticket:claim").setLabel("Assumir").setEmoji("🧑‍💻").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("lanstec:ticket:close").setLabel("Encerrar").setEmoji("🔒").setStyle(ButtonStyle.Danger)));
+  await thread.send({ components: [card], flags: [MessageFlags.IsComponentsV2], allowedMentions: { users: [member.id] } });
+  logger.info({ guildId: guild.id, ticketId: thread.id, requesterId: member.id, parentChannelId: parent.id, operation: "ticket_create" }, "Ticket privado criado");
+  await publishOperationalLog(guild, "🎫 Ticket aberto", "**Solicitante:** <@" + member.id + ">\n**Assunto:** " + subject + "\n**Tópico:** <#" + thread.id + ">", "ticket");
+  return thread;
+}
