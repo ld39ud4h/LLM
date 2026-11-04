@@ -294,29 +294,8 @@ export const setupLanstecCommand = {
         }
       }
     } else {
-      // Modo seletivo: remove somente categorias LANSTEC e seus canais.
-      const categoryNames = new Set(groups.map((group) => group.name));
-      const lanstecCategories = guild.channels.cache.filter(
-        (channel) =>
-          channel.type === ChannelType.GuildCategory && categoryNames.has(channel.name),
-      );
-      for (const category of lanstecCategories.values()) {
-        const children = guild.channels.cache.filter(
-          (channel) => channel.parentId === category.id,
-        );
-        for (const child of children.values()) {
-          try {
-            await child.delete("Reconstrução seletiva LANSTEC");
-          } catch {
-            // Canal inacessível: continua a reconstrução dos demais.
-          }
-        }
-        try {
-          await category.delete("Reconstrução seletiva LANSTEC");
-        } catch {
-          // Categoria inacessível: continua a reconstrução.
-        }
-      }
+      // Reconciliação não destrutiva: nenhuma categoria/canal é apagado no modo padrão.
+      // ensureCategory/ensureChannel abaixo preservam os IDs existentes e corrigem divergências.
     }
 
     const roles = new Map<string, Role>();
@@ -406,11 +385,9 @@ export const setupLanstecCommand = {
       guild.id,
       {
         channels: channelIds,
-        panels: {},
-        webhooks: {},
         setup: {
           version: 2,
-          mode: reset ? "reset" : resetChatsOnly ? "resetchatsonly" : "selective",
+          mode: reset ? "reset" : resetChatsOnly ? "resetchatsonly" : "sync",
           categoryIds,
           channelIds,
           roleIds: Object.fromEntries([...roles].map(([name, role]) => [name, role.id])),
