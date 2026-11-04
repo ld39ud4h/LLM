@@ -273,12 +273,9 @@ export const setupLanstecCommand = {
       await interaction.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("🧹 **Apagando estrutura…**\nPreparando canais e cargos."))], flags: MessageFlags.IsComponentsV2 });
 
       for (const channel of [...guild.channels.cache.values()]) {
-        // Discord interaction webhooks are bound to the command's original channel.
-        // Deleting it invalidates followUp/editReply and produces API 10003.
-        if (channel.id === interaction.channelId) {
-          console.info("Preserving /setup_lanstec invocation channel until interaction completes", { channelId: channel.id, mode });
-          continue;
-        }
+        // Reset é destrutivo e pode apagar inclusive o canal da interação.
+        // A confirmação efêmera já foi recebida; o resultado será publicado
+        // como mensagem operacional independente no canal de logs.
         try {
           await channel.delete(
             resetChatsOnly ? "Reset somente canais /setup_lanstec" : "Reset /setup_lanstec",
@@ -434,6 +431,23 @@ export const setupLanstecCommand = {
         ? "ℹ️ Community desativada: alguns tipos foram convertidos para Text/Voice."
         : "Tipos de canais aplicados conforme configuração.",
     ].join("\n");
-    await interaction.editReply({ components: [new ContainerBuilder().setAccentColor(0x16a34a).addTextDisplayComponents(new TextDisplayBuilder().setContent(summary))], flags: MessageFlags.IsComponentsV2 });
+    // Não usar editReply/followUp após reset: o canal original pode ter sido
+    // excluído e o webhook da interação retornar DiscordAPIError[10003].
+    // O resumo é uma NOVA mensagem no canal operacional de logs.
+    await publishOperationalLog(
+      guild,
+      "✅ LANSTEC — setup concluído",
+      summary,
+      reset || resetChatsOnly ? "create" : "update",
+    );
+    console.info("setup_lanstec concluído; relatório publicado nos logs", {
+      guildId: guild.id,
+      mode,
+      categoriesCreated,
+      categoriesReused,
+      channelsCreated,
+      channelsSynced,
+      roles: roles.size,
+    });
   },
 };
