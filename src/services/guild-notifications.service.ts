@@ -1,6 +1,12 @@
 import { Client, ChannelType, ContainerBuilder, TextDisplayBuilder, MessageFlags, SectionBuilder, ThumbnailBuilder, SeparatorBuilder, SeparatorSpacingSize } from "discord.js";
 import { logger } from "../config/logger.js";
 
+const normalizeChannelName = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+const findTextChannel = (guild: import("discord.js").Guild, name: string) => {
+  const target = normalizeChannelName(name);
+  return guild.channels.cache.find(c => c.type === ChannelType.GuildText && (normalizeChannelName(c.name) === target || normalizeChannelName(c.name).endsWith(target)));
+};
+
 export type OperationalChannel = "status-e-alertas" | "logs-do-bot" | "alertas-de-seguranca";
 
 export async function sendGuildNotice(client: Client, guildId: string, channelName: OperationalChannel, title: string, detail: string, color = 0x06b6d4): Promise<void> {
