@@ -55,24 +55,30 @@ async function resolvePanelChannel(guild: Guild, key: string) {
     tickets: ["abrirticket", "tickets"],
     rules: ["regras", "regraseseguranca"],
     docs: ["documentacao", "documentacaopublica"],
-    work: ["tarefaseprojetos", "tarefasprojetos"],
+    work: ["tarefaseprojetos", "tarefasprojetos", "tarefaseprojetosinternas"],
   };
-  // Prefer the exact channel ID persisted by setup; names are only a recovery fallback.
   const config = await getGuildRuntimeConfig(guild.id);
-  const candidates = aliases[key] ?? [];
+  const candidates = [...new Set([
+    normalizeChannelName(CHANNEL_NAMES[key as keyof typeof CHANNEL_NAMES] ?? ""),
+    ...(aliases[key] ?? []),
+  ].filter(Boolean))];
+  const setupEntries = Object.entries(config.setup?.channelIds ?? {});
   const persistedId = config.channels?.[key] ?? config.setup?.channelIds?.[key]
-    ?? Object.entries(config.setup?.channelIds ?? {}).find(([name]) => {
+    ?? setupEntries.find(([name]) => {
       const normalized = normalizeChannelName(name);
-      return candidates.some(alias => normalized === alias || normalized.endsWith(alias));
+      return candidates.some(alias => normalized === alias || normalized.endsWith(alias) || alias.endsWith(normalized));
     })?.[1];
   if (persistedId) {
-    const persisted = guild.channels.cache.get(persistedId);
-    if (persisted) return persisted;
-    logger.warn({ guildId: guild.id, key, persistedId }, "Persisted panel channel ID is stale; falling back to channel name");
+    const cached = guild.channels.cache.get(persistedId);
+    if (cached) return cached;
+    const fetched = await guild.channels.fetch(persistedId).catch(() => null);
+    if (fetched) return fetched;
+    logger.warn({ guildId: guild.id, key, persistedId }, "Persisted panel channel ID could not be fetched; falling back to channel name");
   }
-  return guild.channels.cache.find(channel => {
+  const channels = await guild.channels.fetch().catch(() => guild.channels.cache);
+  return [...channels.values()].find(channel => {
     const normalized = normalizeChannelName(channel.name);
-    return candidates.some(alias => normalized === alias || normalized.endsWith(alias));
+    return candidates.some(alias => normalized === alias || normalized.endsWith(alias) || alias.endsWith(normalized));
   });
 }
 
